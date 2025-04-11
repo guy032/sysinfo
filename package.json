@@ -1,0 +1,19 @@
+{
+  "name": "computer-winrm",
+  "version": "1.0.0",
+  "description": "Comprehensive system information collector for Windows machines using WinRM",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "node index.js",
+    "collect": "node index.js",
+    "analyze": "node analyze.js"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.7"
+  },
+  "dependencies": {
+    "nodejs-winrm": "^1.1.3",
+    "systeminformation": "^5.25.11"
+  }
+}
