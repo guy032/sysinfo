@@ -17,14 +17,20 @@ const exec = require('child_process').exec;
 const util = require('./util');
 
 let _platform = process.platform;
+let _linux, _darwin, _windows, _freebsd, _openbsd, _netbsd, _sunos;
 
-const _linux = (_platform === 'linux' || _platform === 'android');
-const _darwin = (_platform === 'darwin');
-const _windows = (_platform === 'win32');
-const _freebsd = (_platform === 'freebsd');
-const _openbsd = (_platform === 'openbsd');
-const _netbsd = (_platform === 'netbsd');
-const _sunos = (_platform === 'sunos');
+function setPlatform(platform) {
+  _platform = platform || process.platform;
+  _linux = (_platform === 'linux' || _platform === 'android');
+  _darwin = (_platform === 'darwin');
+  _windows = (_platform === 'win32');
+  _freebsd = (_platform === 'freebsd');
+  _openbsd = (_platform === 'openbsd');
+  _netbsd = (_platform === 'netbsd');
+  _sunos = (_platform === 'sunos');
+}
+
+setPlatform(_platform);
 
 function getLinuxUsbType(type, name) {
   let result = type;
@@ -208,7 +214,8 @@ function parseWindowsUsb(lines, id) {
   }
 }
 
-function usb(callback) {
+function usb(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
@@ -252,7 +259,7 @@ function usb(callback) {
         });
       }
       if (_windows) {
-        util.powerShell('Get-CimInstance CIM_LogicalDevice | where { $_.Description -match "USB"} | select Name,CreationClassName,DeviceId,Manufacturer | fl').then((stdout, error) => {
+        util.powerShell('Get-CimInstance CIM_LogicalDevice | where { $_.Description -match \\"USB\\" } | select Name,CreationClassName,DeviceId,Manufacturer | fl', options).then((stdout, error) => {
           if (!error) {
             const parts = stdout.toString().split(/\n\s*\n/);
             for (let i = 0; i < parts.length; i++) {

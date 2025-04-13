@@ -18,16 +18,21 @@ const exec = require('child_process').exec;
 const execSync = require('child_process').execSync;
 const util = require('./util');
 
-let _platform = process.platform;
 let _nvidiaSmiPath = '';
 
-const _linux = (_platform === 'linux' || _platform === 'android');
-const _darwin = (_platform === 'darwin');
-const _windows = (_platform === 'win32');
-const _freebsd = (_platform === 'freebsd');
-const _openbsd = (_platform === 'openbsd');
-const _netbsd = (_platform === 'netbsd');
-const _sunos = (_platform === 'sunos');
+let _platform = process.platform;
+let _linux, _darwin, _windows, _freebsd, _openbsd, _netbsd, _sunos;
+
+function setPlatform(platform) {
+  _platform = platform || process.platform;
+  _linux = (_platform === 'linux' || _platform === 'android');
+  _darwin = (_platform === 'darwin');
+  _windows = (_platform === 'win32');
+  _freebsd = (_platform === 'freebsd');
+  _openbsd = (_platform === 'openbsd');
+  _netbsd = (_platform === 'netbsd');
+  _sunos = (_platform === 'sunos');
+}
 
 let _resolutionX = 0;
 let _resolutionY = 0;
@@ -133,8 +138,9 @@ function getMetalVersion(id) {
   return families[id] || '';
 }
 
-function graphics(callback) {
-
+function graphics(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
+  
   function parseLinesDarwin(graphicsArr) {
     const res = {
       controllers: [],
@@ -832,13 +838,13 @@ function graphics(callback) {
         // https://devblogs.microsoft.com/scripting/use-powershell-to-discover-multi-monitor-information/
         try {
           const workload = [];
-          workload.push(util.powerShell('Get-CimInstance win32_VideoController | fl *'));
-          workload.push(util.powerShell('gp "HKLM:\\SYSTEM\\ControlSet001\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}\\*" -ErrorAction SilentlyContinue | where MatchingDeviceId $null -NE | select MatchingDeviceId,HardwareInformation.qwMemorySize | fl'));
-          workload.push(util.powerShell('Get-CimInstance win32_desktopmonitor | fl *'));
-          workload.push(util.powerShell('Get-CimInstance -Namespace root\\wmi -ClassName WmiMonitorBasicDisplayParams | fl'));
-          workload.push(util.powerShell('Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::AllScreens'));
-          workload.push(util.powerShell('Get-CimInstance -Namespace root\\wmi -ClassName WmiMonitorConnectionParams | fl'));
-          workload.push(util.powerShell('gwmi WmiMonitorID -Namespace root\\wmi | ForEach-Object {(($_.ManufacturerName -notmatch 0 | foreach {[char]$_}) -join "") + "|" + (($_.ProductCodeID -notmatch 0 | foreach {[char]$_}) -join "") + "|" + (($_.UserFriendlyName -notmatch 0 | foreach {[char]$_}) -join "") + "|" + (($_.SerialNumberID -notmatch 0 | foreach {[char]$_}) -join "") + "|" + $_.InstanceName}'));
+          workload.push(util.powerShell('Get-CimInstance win32_VideoController | fl *', options));
+          workload.push(util.powerShell('gp "HKLM:\\SYSTEM\\ControlSet001\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}\\*" -ErrorAction SilentlyContinue | where MatchingDeviceId $null -NE | select MatchingDeviceId,HardwareInformation.qwMemorySize | fl', options));
+          workload.push(util.powerShell('Get-CimInstance win32_desktopmonitor | fl *', options));
+          workload.push(util.powerShell('Get-CimInstance -Namespace root\\wmi -ClassName WmiMonitorBasicDisplayParams | fl', options));
+          workload.push(util.powerShell('Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::AllScreens', options));
+          workload.push(util.powerShell('Get-CimInstance -Namespace root\\wmi -ClassName WmiMonitorConnectionParams | fl', options));
+          workload.push(util.powerShell('gwmi WmiMonitorID -Namespace root\\wmi | ForEach-Object {(($_.ManufacturerName -notmatch 0 | foreach {[char]$_}) -join "") + "|" + (($_.ProductCodeID -notmatch 0 | foreach {[char]$_}) -join "") + "|" + (($_.UserFriendlyName -notmatch 0 | foreach {[char]$_}) -join "") + "|" + (($_.SerialNumberID -notmatch 0 | foreach {[char]$_}) -join "") + "|" + $_.InstanceName}', options));
 
           const nvidiaData = nvidiaDevices();
 

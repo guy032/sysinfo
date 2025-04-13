@@ -22,12 +22,18 @@ const execSync = require('child_process').execSync;
 const util = require('util');
 
 let _platform = process.platform;
-const _linux = (_platform === 'linux' || _platform === 'android');
-const _darwin = (_platform === 'darwin');
-const _windows = (_platform === 'win32');
-const _freebsd = (_platform === 'freebsd');
-const _openbsd = (_platform === 'openbsd');
-const _netbsd = (_platform === 'netbsd');
+let _linux, _darwin, _windows, _freebsd, _openbsd, _netbsd, _sunos;
+
+function setPlatform(platform) {
+  _platform = platform || process.platform;
+  _linux = (_platform === 'linux' || _platform === 'android');
+  _darwin = (_platform === 'darwin');
+  _windows = (_platform === 'win32');
+  _freebsd = (_platform === 'freebsd');
+  _openbsd = (_platform === 'openbsd');
+  _netbsd = (_platform === 'netbsd');
+  _sunos = (_platform === 'sunos');
+}
 
 let _cores = 0;
 let wmicPath = '';
@@ -51,13 +57,13 @@ const _psIdSeperator = '--##ID##--';
 
 const execOptsWin = {
   windowsHide: true,
-  maxBuffer: 1024 * 20000,
+  maxBuffer: 1024 * 50000,
   encoding: 'UTF-8',
   env: Object.assign({}, process.env, { LANG: 'en_US.UTF-8' })
 };
 
 const execOptsLinux = {
-  maxBuffer: 1024 * 20000,
+  maxBuffer: 1024 * 50000,
   encoding: 'UTF-8',
   stdio: ['pipe', 'pipe', 'ignore']
 };
@@ -415,7 +421,7 @@ function powerShellStart() {
     _psChild = spawn(_powerShell, ['-NoProfile', '-NoLogo', '-InputFormat', 'Text', '-NoExit', '-Command', '-'], {
       stdio: 'pipe',
       windowsHide: true,
-      maxBuffer: 1024 * 20000,
+      maxBuffer: 1024 * 50000,
       encoding: 'UTF-8',
       env: Object.assign({}, process.env, { LANG: 'en_US.UTF-8' })
     });
@@ -444,7 +450,7 @@ function powerShellStart() {
 function powerShellRelease() {
   try {
     if (_psChild) {
-      _psChild.stdin.write('exit' + os.EOL);
+      _psChild.stdin.write('exit' + '\r\n');
       _psChild.stdin.end();
       _psPersistent = false;
     }
@@ -454,7 +460,55 @@ function powerShellRelease() {
   _psChild = null;
 }
 
-function powerShell(cmd) {
+function powerShell(cmd, opts = {}) {
+  // If WinRM connection parameters are provided, use WinRM
+  if (opts.winrm && opts.host && opts.username && opts.password) {
+    const port = opts.port || 5985;
+    
+    // Check if this is a batch of commands to execute in a single shell
+    if (Array.isArray(cmd)) {
+      // Use the more efficient single shell approach for multiple commands
+      return powerShellWinRMSingleShell(cmd, opts);
+    }
+    
+    // Single command execution - run directly with WinRM
+    const auth = 'Basic ' + Buffer.from(opts.username + ":" + opts.password, 'utf8').toString('base64');
+    const params = {
+      host: opts.host,
+      port: port,
+      path: '/wsman',
+      auth: auth
+    };
+
+    return (async () => {
+      try {
+        // Create a shell
+        params.shellId = await opts.winrm.shell.doCreateShell(params);
+        
+        // Execute the command
+        params.command = cmd;
+        params.commandId = await opts.winrm.command.doExecuteCommand(params);
+        
+        // Get the output
+        const result = await opts.winrm.command.doReceiveOutput(params);
+        
+        // Clean up
+        await opts.winrm.shell.doDeleteShell(params);
+        
+        return result;
+      } catch (error) {
+        // Make sure to close the shell if there's an error
+        if (params.shellId) {
+          try {
+            await opts.winrm.shell.doDeleteShell(params);
+          } catch (e) {
+            // Ignore cleanup errors
+          }
+        }
+        throw error;
+      }
+    })();
+  }
 
   /// const pattern = [
   ///   '[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)',
@@ -476,7 +530,7 @@ function powerShell(cmd) {
         });
         try {
           if (_psChild && _psChild.pid) {
-            _psChild.stdin.write(_psToUTF8 + 'echo ' + _psCmdStart + id + _psIdSeperator + '; ' + os.EOL + cmd + os.EOL + 'echo ' + _psCmdSeperator + os.EOL);
+            _psChild.stdin.write(_psToUTF8 + 'echo ' + _psCmdStart + id + _psIdSeperator + '; ' + '\r\n' + cmd + '\r\n' + 'echo ' + _psCmdSeperator + '\r\n');
           }
         } catch (e) {
           resolve('');
@@ -493,7 +547,7 @@ function powerShell(cmd) {
           const child = spawn(_powerShell, ['-NoProfile', '-NoLogo', '-InputFormat', 'Text', '-NoExit', '-ExecutionPolicy', 'Unrestricted', '-Command', '-'], {
             stdio: 'pipe',
             windowsHide: true,
-            maxBuffer: 1024 * 20000,
+            maxBuffer: 1024 * 50000,
             encoding: 'UTF-8',
             env: Object.assign({}, process.env, { LANG: 'en_US.UTF-8' })
           });
@@ -521,8 +575,8 @@ function powerShell(cmd) {
               resolve(result);
             });
             try {
-              child.stdin.write(_psToUTF8 + cmd + os.EOL);
-              child.stdin.write('exit' + os.EOL);
+              child.stdin.write(_psToUTF8 + cmd + '\r\n');
+              child.stdin.write('exit' + '\r\n');
               child.stdin.end();
             } catch (e) {
               child.kill();
@@ -575,11 +629,13 @@ function execSafe(cmd, args, options) {
   });
 }
 
-function getCodepage() {
+function getCodepage(options = {}) {
+  if (options.platform) setPlatform(options.platform);
+
   if (_windows) {
     if (!codepage) {
       try {
-        const stdout = execSync('chcp', execOptsWin);
+        const stdout = powerShell('chcp', options);
         const lines = stdout.toString().split('\r\n');
         const parts = lines[0].split(':');
         codepage = parts.length > 1 ? parts[1].replace('.', '').trim() : '';
@@ -607,14 +663,16 @@ function getCodepage() {
   }
 }
 
-function smartMonToolsInstalled() {
+async function smartMonToolsInstalled(options = {}) {
+  if (options.platform) setPlatform(options.platform);
+
   if (_smartMonToolsInstalled !== null) {
     return _smartMonToolsInstalled;
   }
   _smartMonToolsInstalled = false;
   if (_windows) {
     try {
-      const pathArray = execSync('WHERE smartctl 2>nul', execOptsWin).toString().split('\r\n');
+      const pathArray = await util.powerShell('WHERE smartctl 2>nul');
       if (pathArray && pathArray.length) {
         _smartMonToolsInstalled = pathArray[0].indexOf(':\\') >= 0;
       } else {
@@ -2552,6 +2610,211 @@ function checkWebsite(url, timeout = 5000) {
 function cleanString(str) {
   return str.replace(/To Be Filled By O.E.M./g, '');
 }
+
+function powerShellWinRMBatch(cmds, opts = {}) {
+  // Check required parameters
+  if (!Array.isArray(cmds) || !cmds.length || !opts.winrm || !opts.host || !opts.username || !opts.password) {
+    return Promise.reject(new Error('Invalid parameters for WinRM batch execution'));
+  }
+
+  const port = opts.port || 5985;
+  
+  // Execute all commands in parallel and return results
+  return Promise.all(cmds.map(cmd => 
+    opts.winrm.runPowershell(cmd, opts.host, opts.username, opts.password, port)
+  ));
+}
+
+async function powerShellWinRMSingleShell(cmds, opts = {}) {
+  // Check required parameters
+  if (!Array.isArray(cmds) || !cmds.length || !opts.winrm || !opts.host || !opts.username || !opts.password) {
+    return Promise.reject(new Error('Invalid parameters for WinRM single shell execution'));
+  }
+
+  const winrm = opts.winrm;
+  const port = opts.port || 5985;
+  
+  const startTime = Date.now();
+  
+  // Create basic auth string
+  const auth = 'Basic ' + Buffer.from(opts.username + ":" + opts.password, 'utf8').toString('base64');
+  
+  // Setup params object for WinRM
+  const params = {
+    host: opts.host,
+    port: port,
+    path: '/wsman',
+    auth: auth
+  };
+
+  // Set timeout to prevent hanging indefinitely
+  const shellTimeout = opts.shellTimeout || 1800000; // 30 minutes default
+  let shellTimeoutId = setTimeout(() => {
+    console.error(`[WinRM] SHELL TIMEOUT: Single shell execution exceeded ${shellTimeout/1000}s, forcing cleanup`);
+    
+    // Try to clean up shell if possible
+    if (params.shellId) {
+      try {
+        winrm.shell.doDeleteShell(params).catch(() => {});
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+    
+    throw new Error(`Shell execution timed out after ${shellTimeout/1000}s`);
+  }, shellTimeout);
+
+  try {
+    // Create a single shell
+    params.shellId = await winrm.shell.doCreateShell(params);
+    
+    // Process all commands
+    const results = [];
+    
+    for (let i = 0; i < cmds.length; i++) {
+      const cmd = cmds[i];
+      const cmdStartTime = Date.now();
+      
+      // Set command timeout for individual commands
+      const cmdTimeout = opts.cmdTimeout || 600000; // 10 minutes default
+      let cmdTimeoutId = setTimeout(() => {
+        console.error(`[WinRM] COMMAND TIMEOUT: Command ${i+1}/${cmds.length} exceeded ${cmdTimeout/1000}s`);
+        throw new Error(`Command execution timed out after ${cmdTimeout/1000}s`);
+      }, cmdTimeout);
+      
+      try {
+        // Add a unique identifier to each command's output to ensure we can separate responses
+        const cmdId = Math.random().toString(36).substring(2, 12);
+        const delimiter = `###CMD_OUTPUT_${cmdId}###`;
+        
+        // Add echo statements before and after the command to clearly delimit the output
+        const wrappedCmd = `Write-Output "${delimiter}START"; try { ${cmd} } catch { Write-Output "ERROR: $_" }; Write-Output "${delimiter}END"`;
+        
+        // Set command
+        params.command = `powershell -Command "${wrappedCmd}"`;
+        
+        // Execute command and get ID
+        params.commandId = await winrm.command.doExecuteCommand(params);
+        
+        // Get the output
+        let result = await winrm.command.doReceiveOutput(params);
+        clearTimeout(cmdTimeoutId);
+        
+        // Extract the actual command output from between the delimiters
+        const startMarker = `${delimiter}START`;
+        const endMarker = `${delimiter}END`;
+        
+        const startIdx = result.indexOf(startMarker);
+        const endIdx = result.indexOf(endMarker);
+        
+        if (startIdx !== -1 && endIdx !== -1) {
+          // Extract only the part between our delimiters
+          result = result.substring(startIdx + startMarker.length, endIdx).trim();
+        }
+        
+        results.push(result);
+      } catch (error) {
+        clearTimeout(cmdTimeoutId);
+        console.error(`[WinRM] Error executing command ${i+1}/${cmds.length}: ${error.message}`);
+        results.push(''); // Add empty result to maintain command order
+      }
+    }
+    
+    // Close the shell
+    await winrm.shell.doDeleteShell(params);
+    clearTimeout(shellTimeoutId);
+    
+    return results;
+  } catch (error) {
+    clearTimeout(shellTimeoutId);
+    console.error(`[WinRM] Error in shell ${params.shellId || 'unknown'}: ${error.message} after ${Date.now() - startTime}ms`);
+    // Make sure to close the shell if there's an error
+    if (params.shellId) {
+      try {
+        await winrm.shell.doDeleteShell(params);
+      } catch (e) {
+        console.error(`[WinRM] Failed to close shell ${params.shellId}: ${e.message}`);
+        // Ignore cleanup errors
+      }
+    }
+    throw error;
+  }
+}
+
+function powerShellWinRMWorkload(cmd, opts = {}) {
+  if (!opts.winrm || !opts.host || !opts.username || !opts.password) {
+    // If not using WinRM, just use regular powerShell function
+    return powerShell(cmd, opts);
+  }
+
+  // Instead of batching commands, create a new shell for each command
+  // This enables parallel execution and prevents one command from blocking others
+  const startTime = Date.now();
+
+  // Create a promise with timeout safety
+  return new Promise((resolve) => {
+    // Create a safety timeout to ensure we don't get stuck indefinitely
+    const maxCmdTimeout = opts.timeout || 600000; // 10 minutes default
+    const safetyTimer = setTimeout(() => {
+      console.error(`[WinRM] TIMEOUT: Command timed out after ${maxCmdTimeout/1000}s`);
+      resolve(""); // Resolve with empty string on timeout
+    }, maxCmdTimeout);
+
+    // Execute single command directly using WinRM
+    const port = opts.port || 5985;
+    const auth = 'Basic ' + Buffer.from(opts.username + ":" + opts.password, 'utf8').toString('base64');
+    
+    const params = {
+      host: opts.host,
+      port: port,
+      path: '/wsman',
+      auth: auth
+    };
+
+    // Execute in an immediate async function 
+    (async () => {
+      try {
+        // Create a shell
+        params.shellId = await opts.winrm.shell.doCreateShell(params);
+        
+        // Execute the command
+        params.command = `powershell -Command "${cmd}"`;
+        params.commandId = await opts.winrm.command.doExecuteCommand(params);
+        
+        // Get the output
+        const result = await opts.winrm.command.doReceiveOutput(params);
+        
+        // Clean up
+        await opts.winrm.shell.doDeleteShell(params);
+        
+        clearTimeout(safetyTimer);
+        resolve(result);
+      } catch (error) {
+        console.error(`[WinRM] Error executing command: ${error.message}`);
+        
+        // Make sure to close the shell if there's an error
+        if (params.shellId) {
+          try {
+            await opts.winrm.shell.doDeleteShell(params);
+          } catch (e) {
+            // Ignore cleanup errors
+          }
+        }
+        
+        clearTimeout(safetyTimer);
+        resolve("");
+      }
+    })();
+  });
+}
+
+// Override promiseAll to handle each command individually
+const originalPromiseAll = promiseAll;
+promiseAll = function(workload) {
+  // Don't intercept with batching logic anymore - each command already runs in its own shell
+  return originalPromiseAll(workload);
+}
+
 function noop() { }
 
 exports.toInt = toInt;
@@ -2573,9 +2836,6 @@ exports.getWmic = getWmic;
 exports.wmic = wmic;
 exports.darwinXcodeExists = darwinXcodeExists;
 exports.getVboxmanage = getVboxmanage;
-exports.powerShell = powerShell;
-exports.powerShellStart = powerShellStart;
-exports.powerShellRelease = powerShellRelease;
 exports.execSafe = execSafe;
 exports.nanoSeconds = nanoSeconds;
 exports.countUniqueLines = countUniqueLines;
@@ -2609,4 +2869,10 @@ exports.semverCompare = semverCompare;
 exports.getAppleModel = getAppleModel;
 exports.checkWebsite = checkWebsite;
 exports.cleanString = cleanString;
+
 exports.getPowershell = getPowershell;
+exports.powerShell = powerShellWinRMWorkload;
+exports.powerShellStart = powerShellStart;
+exports.powerShellRelease = powerShellRelease;
+exports.powerShellWinRMBatch = powerShellWinRMBatch;
+exports.powerShellWinRMSingleShell = powerShellWinRMSingleShell;

@@ -20,14 +20,20 @@ const util = require('./util');
 const fs = require('fs');
 
 let _platform = process.platform;
+let _linux, _darwin, _windows, _freebsd, _openbsd, _netbsd, _sunos;
 
-const _linux = (_platform === 'linux' || _platform === 'android');
-const _darwin = (_platform === 'darwin');
-const _windows = (_platform === 'win32');
-const _freebsd = (_platform === 'freebsd');
-const _openbsd = (_platform === 'openbsd');
-const _netbsd = (_platform === 'netbsd');
-const _sunos = (_platform === 'sunos');
+function setPlatform(platform) {
+  _platform = platform || process.platform;
+  _linux = (_platform === 'linux' || _platform === 'android');
+  _darwin = (_platform === 'darwin');
+  _windows = (_platform === 'win32');
+  _freebsd = (_platform === 'freebsd');
+  _openbsd = (_platform === 'openbsd');
+  _netbsd = (_platform === 'netbsd');
+  _sunos = (_platform === 'sunos');
+}
+
+setPlatform(_platform);
 
 const OSX_RAM_manufacturers = {
   '0x014F': 'Transcend Information',
@@ -143,18 +149,19 @@ const LINUX_RAM_manufacturers = {
 // SReclaimable: 256364 kB
 // SUnreclaim: 79352 kB
 
-function mem(callback) {
+function mem(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
 
       let result = {
-        total: os.totalmem(),
-        free: os.freemem(),
-        used: os.totalmem() - os.freemem(),
+        total: 0,
+        free: 0,
+        used: 0,
 
-        active: os.totalmem() - os.freemem(),     // temporarily (fallback)
-        available: os.freemem(),                  // temporarily (fallback)
+        active: 0,     // temporarily (fallback)
+        available: 0,  // temporarily (fallback)
         buffers: 0,
         cached: 0,
         slab: 0,
@@ -281,24 +288,85 @@ function mem(callback) {
         }
       }
       if (_windows) {
-        let swaptotal = 0;
-        let swapused = 0;
         try {
-          util.powerShell('Get-CimInstance Win32_PageFileUsage | Select AllocatedBaseSize, CurrentUsage').then((stdout, error) => {
-            if (!error) {
-              let lines = stdout.split('\r\n').filter(line => line.trim() !== '').filter((line, idx) => idx > 0);
-              lines.forEach(function (line) {
-                if (line !== '') {
-                  line = line.trim().split(/\s\s+/);
-                  swaptotal = swaptotal + (parseInt(line[0], 10) || 0);
-                  swapused = swapused + (parseInt(line[1], 10) || 0);
-                }
-              });
+          const workload = [];
+          workload.push(util.powerShell('Get-CimInstance Win32_OperatingSystem | Select FreePhysicalMemory,TotalVisibleMemorySize', options));
+          workload.push(util.powerShell('Get-CimInstance Win32_PageFileUsage | Select AllocatedBaseSize, CurrentUsage', options));
+          workload.push(util.powerShell('Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory | Select CacheBytes,ModifiedPageListBytes,StandbyCacheNormalPriorityBytes,StandbyCacheCoreBytes', options));
+
+          Promise.all(
+            workload
+          ).then((data) => {
+            // Parse memory information from tabular format
+            let memoryLines = data[0].split('\r\n');
+            // The values are in the 3rd line, aligned under their column headers
+            if (memoryLines.length >= 3) {
+              // Extract the values from the third line which contains the actual data
+              const memValues = memoryLines[2].trim().split(/\s+/);
+              if (memValues.length >= 2) {
+                const freeMemKB = parseInt(memValues[0], 10) || 0;
+                const totalMemKB = parseInt(memValues[1], 10) || 0;
+                
+                result.total = totalMemKB * 1024;
+                result.free = freeMemKB * 1024;
+                result.used = result.total - result.free;
+                result.active = result.used;
+                result.available = result.free;
+              }
             }
+            
+            // Parse page file information from tabular format
+            let swaptotal = 0;
+            let swapused = 0;
+            
+            let pageFileLines = data[1].split('\r\n');
+            // Skip headers (first 2 lines) and process data lines
+            for (let i = 2; i < pageFileLines.length; i++) {
+              const line = pageFileLines[i].trim();
+              if (line) {
+                const values = line.split(/\s+/);
+                if (values.length >= 2) {
+                  swaptotal += parseInt(values[0], 10) || 0;
+                  swapused += parseInt(values[1], 10) || 0;
+                }
+              }
+            }
+            
+            // Parse memory cache information from Win32_PerfFormattedData_PerfOS_Memory
+            if (data.length > 2) {
+              let cacheLines = data[2].split('\r\n');
+              // Format is typically:
+              // CacheBytes ModifiedPageListBytes StandbyCacheNormalPriorityBytes StandbyCacheCoreBytes
+              // ---------- --------------------- -------------------------------- ---------------------
+              //    86769664                51200                        401887232            307544064
+              
+              if (cacheLines.length >= 3) {
+                const cacheValues = cacheLines[2].trim().split(/\s+/);
+                if (cacheValues.length >= 4) {
+                  // System file cache
+                  const cacheBytes = parseInt(cacheValues[0], 10) || 0;
+                  // Similar to Linux "dirty" pages - memory waiting to be written to disk
+                  const modifiedBytes = parseInt(cacheValues[1], 10) || 0;
+                  // Standby memory that can be repurposed
+                  const standbyNormalBytes = parseInt(cacheValues[2], 10) || 0;
+                  const standbyCoreBytes = parseInt(cacheValues[3], 10) || 0;
+                  
+                  // Fill in memory details using Windows equivalents
+                  result.cached = cacheBytes + standbyNormalBytes + standbyCoreBytes;
+                  result.buffers = modifiedBytes;
+                  result.buffcache = result.cached + result.buffers;
+                  result.dirty = modifiedBytes;
+                  
+                  // Adjust available memory to include cache that can be repurposed
+                  result.available = result.free + result.cached;
+                }
+              }
+            }
+            
             result.swaptotal = swaptotal * 1024 * 1024;
             result.swapused = swapused * 1024 * 1024;
             result.swapfree = result.swaptotal - result.swapused;
-
+            
             if (callback) { callback(result); }
             resolve(result);
           });
@@ -313,7 +381,8 @@ function mem(callback) {
 
 exports.mem = mem;
 
-function memLayout(callback) {
+function memLayout(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   function getManufacturerDarwin(manId) {
     if ({}.hasOwnProperty.call(OSX_RAM_manufacturers, manId)) {
@@ -532,7 +601,7 @@ function memLayout(callback) {
         const FormFactors = 'Unknown|Other|SIP|DIP|ZIP|SOJ|Proprietary|SIMM|DIMM|TSOP|PGA|RIMM|SODIMM|SRIMM|SMD|SSMP|QFP|TQFP|SOIC|LCC|PLCC|BGA|FPBGA|LGA'.split('|');
 
         try {
-          util.powerShell('Get-CimInstance Win32_PhysicalMemory | select DataWidth,TotalWidth,Capacity,BankLabel,MemoryType,SMBIOSMemoryType,ConfiguredClockSpeed,Speed,FormFactor,Manufacturer,PartNumber,SerialNumber,ConfiguredVoltage,MinVoltage,MaxVoltage,Tag | fl').then((stdout, error) => {
+          util.powerShell('Get-CimInstance Win32_PhysicalMemory | select DataWidth,TotalWidth,Capacity,BankLabel,MemoryType,SMBIOSMemoryType,ConfiguredClockSpeed,Speed,FormFactor,Manufacturer,PartNumber,SerialNumber,ConfiguredVoltage,MinVoltage,MaxVoltage,Tag | fl', options).then((stdout, error) => {
             if (!error) {
               let devices = stdout.toString().split(/\n\s*\n/);
               devices.shift();

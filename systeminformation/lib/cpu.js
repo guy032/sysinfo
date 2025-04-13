@@ -20,14 +20,20 @@ const fs = require('fs');
 const util = require('./util');
 
 let _platform = process.platform;
+let _linux, _darwin, _windows, _freebsd, _openbsd, _netbsd, _sunos;
 
-const _linux = (_platform === 'linux' || _platform === 'android');
-const _darwin = (_platform === 'darwin');
-const _windows = (_platform === 'win32');
-const _freebsd = (_platform === 'freebsd');
-const _openbsd = (_platform === 'openbsd');
-const _netbsd = (_platform === 'netbsd');
-const _sunos = (_platform === 'sunos');
+function setPlatform(platform) {
+  _platform = platform || process.platform;
+  _linux = (_platform === 'linux' || _platform === 'android');
+  _darwin = (_platform === 'darwin');
+  _windows = (_platform === 'win32');
+  _freebsd = (_platform === 'freebsd');
+  _openbsd = (_platform === 'openbsd');
+  _netbsd = (_platform === 'netbsd');
+  _sunos = (_platform === 'sunos');
+}
+
+setPlatform(_platform);
 
 let _cpu_speed = 0;
 let _current_cpu = {
@@ -647,10 +653,10 @@ function getAMDSpeed(brand) {
 // --------------------------
 // CPU - brand, speed
 
-function getCpu() {
-
+function getCpu(options = {}) {
+  if (options.platform) setPlatform(options.platform);
   return new Promise((resolve) => {
-    process.nextTick(() => {
+    process.nextTick(async () => {
       const UNKNOWN = 'unknown';
       let result = {
         manufacturer: UNKNOWN,
@@ -675,45 +681,275 @@ function getCpu() {
         virtualization: false,
         cache: {}
       };
-      cpuFlags().then(flags => {
-        result.flags = flags;
-        result.virtualization = flags.indexOf('vmx') > -1 || flags.indexOf('svm') > -1;
-        if (_darwin) {
-          exec('sysctl machdep.cpu hw.cpufrequency_max hw.cpufrequency_min hw.packages hw.physicalcpu_max hw.ncpu hw.tbfrequency hw.cpufamily hw.cpusubfamily', function (error, stdout) {
-            let lines = stdout.toString().split('\n');
-            const modelline = util.getValue(lines, 'machdep.cpu.brand_string');
-            const modellineParts = modelline.split('@');
-            result.brand = modellineParts[0].trim();
-            const speed = modellineParts[1] ? modellineParts[1].trim() : '0';
-            result.speed = parseFloat(speed.replace(/GHz+/g, ''));
-            let tbFrequency = util.getValue(lines, 'hw.tbfrequency') / 1000000000.0;
-            tbFrequency = tbFrequency < 0.1 ? tbFrequency * 100 : tbFrequency;
-            result.speed = result.speed === 0 ? tbFrequency : result.speed;
 
-            _cpu_speed = result.speed;
-            result = cpuBrandManufacturer(result);
-            result.speedMin = util.getValue(lines, 'hw.cpufrequency_min') ? (util.getValue(lines, 'hw.cpufrequency_min') / 1000000000.0) : result.speed;
-            result.speedMax = util.getValue(lines, 'hw.cpufrequency_max') ? (util.getValue(lines, 'hw.cpufrequency_max') / 1000000000.0) : result.speed;
-            result.vendor = util.getValue(lines, 'machdep.cpu.vendor') || 'Apple';
-            result.family = util.getValue(lines, 'machdep.cpu.family') || util.getValue(lines, 'hw.cpufamily');
-            result.model = util.getValue(lines, 'machdep.cpu.model');
-            result.stepping = util.getValue(lines, 'machdep.cpu.stepping') || util.getValue(lines, 'hw.cpusubfamily');
-            result.virtualization = true;
-            const countProcessors = util.getValue(lines, 'hw.packages');
-            const countCores = util.getValue(lines, 'hw.physicalcpu_max');
-            const countThreads = util.getValue(lines, 'hw.ncpu');
-            if (os.arch() === 'arm64') {
-              result.socket = 'SOC';
-              try {
-                const clusters = execSync('ioreg -c IOPlatformDevice -d 3 -r | grep cluster-type').toString().split('\n');
-                const efficiencyCores = clusters.filter(line => line.indexOf('"E"') >= 0).length;
-                const performanceCores = clusters.filter(line => line.indexOf('"P"') >= 0).length;
-                result.efficiencyCores = efficiencyCores;
-                result.performanceCores = performanceCores;
-              } catch (e) {
-                util.noop();
+      const temperature = await cpuTemperature(options);
+      result.temperature = temperature;
+
+      const flags = await cpuFlags(options);
+      result.flags = flags;
+
+      result.virtualization = flags.indexOf('vmx') > -1 || flags.indexOf('svm') > -1;
+      if (_darwin) {
+        exec('sysctl machdep.cpu hw.cpufrequency_max hw.cpufrequency_min hw.packages hw.physicalcpu_max hw.ncpu hw.tbfrequency hw.cpufamily hw.cpusubfamily', function (error, stdout) {
+          let lines = stdout.toString().split('\n');
+          const modelline = util.getValue(lines, 'machdep.cpu.brand_string');
+          const modellineParts = modelline.split('@');
+          result.brand = modellineParts[0].trim();
+          const speed = modellineParts[1] ? modellineParts[1].trim() : '0';
+          result.speed = parseFloat(speed.replace(/GHz+/g, ''));
+          let tbFrequency = util.getValue(lines, 'hw.tbfrequency') / 1000000000.0;
+          tbFrequency = tbFrequency < 0.1 ? tbFrequency * 100 : tbFrequency;
+          result.speed = result.speed === 0 ? tbFrequency : result.speed;
+
+          _cpu_speed = result.speed;
+          result = cpuBrandManufacturer(result);
+          result.speedMin = util.getValue(lines, 'hw.cpufrequency_min') ? (util.getValue(lines, 'hw.cpufrequency_min') / 1000000000.0) : result.speed;
+          result.speedMax = util.getValue(lines, 'hw.cpufrequency_max') ? (util.getValue(lines, 'hw.cpufrequency_max') / 1000000000.0) : result.speed;
+          result.vendor = util.getValue(lines, 'machdep.cpu.vendor') || 'Apple';
+          result.family = util.getValue(lines, 'machdep.cpu.family') || util.getValue(lines, 'hw.cpufamily');
+          result.model = util.getValue(lines, 'machdep.cpu.model');
+          result.stepping = util.getValue(lines, 'machdep.cpu.stepping') || util.getValue(lines, 'hw.cpusubfamily');
+          result.virtualization = true;
+          const countProcessors = util.getValue(lines, 'hw.packages');
+          const countCores = util.getValue(lines, 'hw.physicalcpu_max');
+          const countThreads = util.getValue(lines, 'hw.ncpu');
+          if (os.arch() === 'arm64') {
+            result.socket = 'SOC';
+            try {
+              const clusters = execSync('ioreg -c IOPlatformDevice -d 3 -r | grep cluster-type').toString().split('\n');
+              const efficiencyCores = clusters.filter(line => line.indexOf('"E"') >= 0).length;
+              const performanceCores = clusters.filter(line => line.indexOf('"P"') >= 0).length;
+              result.efficiencyCores = efficiencyCores;
+              result.performanceCores = performanceCores;
+            } catch (e) {
+              util.noop();
+            }
+          }
+          if (countProcessors) {
+            result.processors = parseInt(countProcessors) || 1;
+          }
+          if (countCores && countThreads) {
+            result.cores = parseInt(countThreads) || util.cores();
+            result.physicalCores = parseInt(countCores) || util.cores();
+          }
+          cpuCache().then((res) => {
+            result.cache = res;
+            resolve(result);
+          });
+        });
+      }
+      if (_linux) {
+        let modelline = '';
+        let lines = [];
+        if (os.cpus()[0] && os.cpus()[0].model) { modelline = os.cpus()[0].model; }
+        exec('export LC_ALL=C; lscpu; echo -n "Governor: "; cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null; echo; unset LC_ALL', function (error, stdout) {
+          if (!error) {
+            lines = stdout.toString().split('\n');
+          }
+          modelline = util.getValue(lines, 'model name') || modelline;
+          modelline = util.getValue(lines, 'bios model name') || modelline;
+          modelline = util.cleanString(modelline);
+          const modellineParts = modelline.split('@');
+          result.brand = modellineParts[0].trim();
+          result.speed = modellineParts[1] ? parseFloat(modellineParts[1].trim()) : 0;
+          if (result.speed === 0 && (result.brand.indexOf('AMD') > -1 || result.brand.toLowerCase().indexOf('ryzen') > -1)) {
+            result.speed = getAMDSpeed(result.brand);
+          }
+          if (result.speed === 0) {
+            const current = getCpuCurrentSpeedSync();
+            if (current.avg !== 0) { result.speed = current.avg; }
+          }
+          _cpu_speed = result.speed;
+          result.speedMin = Math.round(parseFloat(util.getValue(lines, 'cpu min mhz').replace(/,/g, '.')) / 10.0) / 100;
+          result.speedMax = Math.round(parseFloat(util.getValue(lines, 'cpu max mhz').replace(/,/g, '.')) / 10.0) / 100;
+
+          result = cpuBrandManufacturer(result);
+          result.vendor = cpuManufacturer(util.getValue(lines, 'vendor id'));
+
+          result.family = util.getValue(lines, 'cpu family');
+          result.model = util.getValue(lines, 'model:');
+          result.stepping = util.getValue(lines, 'stepping');
+          result.revision = util.getValue(lines, 'cpu revision');
+          result.cache.l1d = util.getValue(lines, 'l1d cache');
+          if (result.cache.l1d) { result.cache.l1d = parseInt(result.cache.l1d) * (result.cache.l1d.indexOf('M') !== -1 ? 1024 * 1024 : (result.cache.l1d.indexOf('K') !== -1 ? 1024 : 1)); }
+          result.cache.l1i = util.getValue(lines, 'l1i cache');
+          if (result.cache.l1i) { result.cache.l1i = parseInt(result.cache.l1i) * (result.cache.l1i.indexOf('M') !== -1 ? 1024 * 1024 : (result.cache.l1i.indexOf('K') !== -1 ? 1024 : 1)); }
+          result.cache.l2 = util.getValue(lines, 'l2 cache');
+          if (result.cache.l2) { result.cache.l2 = parseInt(result.cache.l2) * (result.cache.l2.indexOf('M') !== -1 ? 1024 * 1024 : (result.cache.l2.indexOf('K') !== -1 ? 1024 : 1)); }
+          result.cache.l3 = util.getValue(lines, 'l3 cache');
+          if (result.cache.l3) { result.cache.l3 = parseInt(result.cache.l3) * (result.cache.l3.indexOf('M') !== -1 ? 1024 * 1024 : (result.cache.l3.indexOf('K') !== -1 ? 1024 : 1)); }
+
+          const threadsPerCore = util.getValue(lines, 'thread(s) per core') || '1';
+          const processors = util.getValue(lines, 'socket(s)') || '1';
+          const threadsPerCoreInt = parseInt(threadsPerCore, 10); // threads per code (normally only for performance cores)
+          const processorsInt = parseInt(processors, 10) || 1;  // number of sockets /  processor units in machine (normally 1)
+          const coresPerSocket = parseInt(util.getValue(lines, 'core(s) per socket'), 10); // number of cores (e.g. 16 on i12900)
+          result.physicalCores = coresPerSocket ? coresPerSocket * processorsInt : result.cores / threadsPerCoreInt;
+          result.performanceCores = threadsPerCoreInt > 1 ? result.cores - result.physicalCores : result.cores;
+          result.efficiencyCores = threadsPerCoreInt > 1 ? result.cores - (threadsPerCoreInt * result.performanceCores) : 0;
+          result.processors = processorsInt;
+          result.governor = util.getValue(lines, 'governor') || '';
+
+          // Test Raspberry
+          if (result.vendor === 'ARM' && util.isRaspberry()) {
+            const rPIRevision = util.decodePiCpuinfo();
+            result.family = result.manufacturer;
+            result.manufacturer = rPIRevision.manufacturer;
+            result.brand = rPIRevision.processor;
+            result.revision = rPIRevision.revisionCode;
+            result.socket = 'SOC';
+          }
+
+          // Test RISC-V
+          if (util.getValue(lines, 'architecture') === 'riscv64') {
+            const linesRiscV = fs.readFileSync('/proc/cpuinfo').toString().split('\n');
+            const uarch = util.getValue(linesRiscV, 'uarch') || '';
+            if (uarch.indexOf(',') > -1) {
+              const split = uarch.split(',');
+              result.manufacturer = cpuManufacturer(split[0]);
+              result.brand = split[1];
+            }
+          }
+
+          // socket type
+          let lines2 = [];
+          exec('export LC_ALL=C; dmidecode –t 4 2>/dev/null | grep "Upgrade: Socket"; unset LC_ALL', function (error2, stdout2) {
+            lines2 = stdout2.toString().split('\n');
+            if (lines2 && lines2.length) {
+              result.socket = util.getValue(lines2, 'Upgrade').replace('Socket', '').trim() || result.socket;
+            }
+            resolve(result);
+          });
+        });
+      }
+      if (_freebsd || _openbsd || _netbsd) {
+        let modelline = '';
+        let lines = [];
+        if (os.cpus()[0] && os.cpus()[0].model) { modelline = os.cpus()[0].model; }
+        exec('export LC_ALL=C; dmidecode -t 4; dmidecode -t 7 unset LC_ALL', function (error, stdout) {
+          let cache = [];
+          if (!error) {
+            const data = stdout.toString().split('# dmidecode');
+            const processor = data.length > 1 ? data[1] : '';
+            cache = data.length > 2 ? data[2].split('Cache Information') : [];
+
+            lines = processor.split('\n');
+          }
+          result.brand = modelline.split('@')[0].trim();
+          result.speed = modelline.split('@')[1] ? parseFloat(modelline.split('@')[1].trim()) : 0;
+          if (result.speed === 0 && (result.brand.indexOf('AMD') > -1 || result.brand.toLowerCase().indexOf('ryzen') > -1)) {
+            result.speed = getAMDSpeed(result.brand);
+          }
+          if (result.speed === 0) {
+            const current = getCpuCurrentSpeedSync();
+            if (current.avg !== 0) { result.speed = current.avg; }
+          }
+          _cpu_speed = result.speed;
+          result.speedMin = result.speed;
+          result.speedMax = Math.round(parseFloat(util.getValue(lines, 'max speed').replace(/Mhz/g, '')) / 10.0) / 100;
+
+          result = cpuBrandManufacturer(result);
+          result.vendor = cpuManufacturer(util.getValue(lines, 'manufacturer'));
+          let sig = util.getValue(lines, 'signature');
+          sig = sig.split(',');
+          for (let i = 0; i < sig.length; i++) {
+            sig[i] = sig[i].trim();
+          }
+          result.family = util.getValue(sig, 'Family', ' ', true);
+          result.model = util.getValue(sig, 'Model', ' ', true);
+          result.stepping = util.getValue(sig, 'Stepping', ' ', true);
+          result.revision = '';
+          const voltage = parseFloat(util.getValue(lines, 'voltage'));
+          result.voltage = isNaN(voltage) ? '' : voltage.toFixed(2);
+          for (let i = 0; i < cache.length; i++) {
+            lines = cache[i].split('\n');
+            let cacheType = util.getValue(lines, 'Socket Designation').toLowerCase().replace(' ', '-').split('-');
+            cacheType = cacheType.length ? cacheType[0] : '';
+            const sizeParts = util.getValue(lines, 'Installed Size').split(' ');
+            let size = parseInt(sizeParts[0], 10);
+            const unit = sizeParts.length > 1 ? sizeParts[1] : 'kb';
+            size = size * (unit === 'kb' ? 1024 : (unit === 'mb' ? 1024 * 1024 : (unit === 'gb' ? 1024 * 1024 * 1024 : 1)));
+            if (cacheType) {
+              if (cacheType === 'l1') {
+                result.cache[cacheType + 'd'] = size / 2;
+                result.cache[cacheType + 'i'] = size / 2;
+              } else {
+                result.cache[cacheType] = size;
               }
             }
+          }
+          // socket type
+          result.socket = util.getValue(lines, 'Upgrade').replace('Socket', '').trim();
+          // # threads / # cores
+          const threadCount = util.getValue(lines, 'thread count').trim();
+          const coreCount = util.getValue(lines, 'core count').trim();
+          if (coreCount && threadCount) {
+            result.cores = parseInt(threadCount, 10);
+            result.physicalCores = parseInt(coreCount, 10);
+          }
+          resolve(result);
+        });
+      }
+      if (_sunos) {
+        resolve(result);
+      }
+      if (_windows) {
+        try {
+          const workload = [];
+          workload.push(util.powerShell('Get-CimInstance Win32_processor | select Name, Revision, L2CacheSize, L3CacheSize, Manufacturer, MaxClockSpeed, Description, UpgradeMethod, Caption, NumberOfLogicalProcessors, NumberOfCores | fl', options));
+          workload.push(util.powerShell('Get-CimInstance Win32_CacheMemory | select CacheType,InstalledSize,Level | fl', options));
+          workload.push(util.powerShell('(Get-CimInstance Win32_ComputerSystem).HypervisorPresent', options));
+
+          Promise.all(
+            workload
+          ).then((data) => {
+            let lines = data[0].split('\r\n');
+            let name = util.getValue(lines, 'name', ':') || '';
+            if (name.indexOf('@') >= 0) {
+              result.brand = name.split('@')[0].trim();
+              result.speed = name.split('@')[1] ? parseFloat(name.split('@')[1].trim()) : 0;
+              _cpu_speed = result.speed;
+            } else {
+              result.brand = name.trim();
+              result.speed = 0;
+            }
+            result = cpuBrandManufacturer(result);
+            result.revision = util.getValue(lines, 'revision', ':');
+            result.vendor = util.getValue(lines, 'manufacturer', ':');
+            result.speedMax = Math.round(parseFloat(util.getValue(lines, 'maxclockspeed', ':').replace(/,/g, '.')) / 10.0) / 100;
+            if (result.speed === 0 && (result.brand.indexOf('AMD') > -1 || result.brand.toLowerCase().indexOf('ryzen') > -1)) {
+              result.speed = getAMDSpeed(result.brand);
+            }
+            if (result.speed === 0) {
+              result.speed = result.speedMax;
+            }
+            result.speedMin = result.speed;
+
+            let description = util.getValue(lines, 'description', ':').split(' ');
+            for (let i = 0; i < description.length; i++) {
+              if (description[i].toLowerCase().startsWith('family') && (i + 1) < description.length && description[i + 1]) {
+                result.family = description[i + 1];
+              }
+              if (description[i].toLowerCase().startsWith('model') && (i + 1) < description.length && description[i + 1]) {
+                result.model = description[i + 1];
+              }
+              if (description[i].toLowerCase().startsWith('stepping') && (i + 1) < description.length && description[i + 1]) {
+                result.stepping = description[i + 1];
+              }
+            }
+            // socket type
+            const socketId = util.getValue(lines, 'UpgradeMethod', ':');
+            if (socketTypes[socketId]) {
+              result.socket = socketTypes[socketId];
+            }
+            const socketByName = getSocketTypesByName(name);
+            if (socketByName) {
+              result.socket = socketByName;
+            }
+            // # threads / # cores
+            const countProcessors = util.countLines(lines, 'Caption');
+            const countThreads = util.getValue(lines, 'NumberOfLogicalProcessors', ':');
+            const countCores = util.getValue(lines, 'NumberOfCores', ':');
             if (countProcessors) {
               result.processors = parseInt(countProcessors) || 1;
             }
@@ -721,246 +957,20 @@ function getCpu() {
               result.cores = parseInt(countThreads) || util.cores();
               result.physicalCores = parseInt(countCores) || util.cores();
             }
-            cpuCache().then((res) => {
-              result.cache = res;
-              resolve(result);
-            });
-          });
-        }
-        if (_linux) {
-          let modelline = '';
-          let lines = [];
-          if (os.cpus()[0] && os.cpus()[0].model) { modelline = os.cpus()[0].model; }
-          exec('export LC_ALL=C; lscpu; echo -n "Governor: "; cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null; echo; unset LC_ALL', function (error, stdout) {
-            if (!error) {
-              lines = stdout.toString().split('\n');
+            if (countProcessors > 1) {
+              result.cores = result.cores * countProcessors;
+              result.physicalCores = result.physicalCores * countProcessors;
             }
-            modelline = util.getValue(lines, 'model name') || modelline;
-            modelline = util.getValue(lines, 'bios model name') || modelline;
-            modelline = util.cleanString(modelline);
-            const modellineParts = modelline.split('@');
-            result.brand = modellineParts[0].trim();
-            result.speed = modellineParts[1] ? parseFloat(modellineParts[1].trim()) : 0;
-            if (result.speed === 0 && (result.brand.indexOf('AMD') > -1 || result.brand.toLowerCase().indexOf('ryzen') > -1)) {
-              result.speed = getAMDSpeed(result.brand);
-            }
-            if (result.speed === 0) {
-              const current = getCpuCurrentSpeedSync();
-              if (current.avg !== 0) { result.speed = current.avg; }
-            }
-            _cpu_speed = result.speed;
-            result.speedMin = Math.round(parseFloat(util.getValue(lines, 'cpu min mhz').replace(/,/g, '.')) / 10.0) / 100;
-            result.speedMax = Math.round(parseFloat(util.getValue(lines, 'cpu max mhz').replace(/,/g, '.')) / 10.0) / 100;
+            result.cache = parseWinCache(data[0], data[1]);
+            const hyperv = data[2] ? data[2].toString().toLowerCase() : '';
+            result.virtualization = hyperv.indexOf('true') !== -1;
 
-            result = cpuBrandManufacturer(result);
-            result.vendor = cpuManufacturer(util.getValue(lines, 'vendor id'));
-
-            result.family = util.getValue(lines, 'cpu family');
-            result.model = util.getValue(lines, 'model:');
-            result.stepping = util.getValue(lines, 'stepping');
-            result.revision = util.getValue(lines, 'cpu revision');
-            result.cache.l1d = util.getValue(lines, 'l1d cache');
-            if (result.cache.l1d) { result.cache.l1d = parseInt(result.cache.l1d) * (result.cache.l1d.indexOf('M') !== -1 ? 1024 * 1024 : (result.cache.l1d.indexOf('K') !== -1 ? 1024 : 1)); }
-            result.cache.l1i = util.getValue(lines, 'l1i cache');
-            if (result.cache.l1i) { result.cache.l1i = parseInt(result.cache.l1i) * (result.cache.l1i.indexOf('M') !== -1 ? 1024 * 1024 : (result.cache.l1i.indexOf('K') !== -1 ? 1024 : 1)); }
-            result.cache.l2 = util.getValue(lines, 'l2 cache');
-            if (result.cache.l2) { result.cache.l2 = parseInt(result.cache.l2) * (result.cache.l2.indexOf('M') !== -1 ? 1024 * 1024 : (result.cache.l2.indexOf('K') !== -1 ? 1024 : 1)); }
-            result.cache.l3 = util.getValue(lines, 'l3 cache');
-            if (result.cache.l3) { result.cache.l3 = parseInt(result.cache.l3) * (result.cache.l3.indexOf('M') !== -1 ? 1024 * 1024 : (result.cache.l3.indexOf('K') !== -1 ? 1024 : 1)); }
-
-            const threadsPerCore = util.getValue(lines, 'thread(s) per core') || '1';
-            const processors = util.getValue(lines, 'socket(s)') || '1';
-            const threadsPerCoreInt = parseInt(threadsPerCore, 10); // threads per code (normally only for performance cores)
-            const processorsInt = parseInt(processors, 10) || 1;  // number of sockets /  processor units in machine (normally 1)
-            const coresPerSocket = parseInt(util.getValue(lines, 'core(s) per socket'), 10); // number of cores (e.g. 16 on i12900)
-            result.physicalCores = coresPerSocket ? coresPerSocket * processorsInt : result.cores / threadsPerCoreInt;
-            result.performanceCores = threadsPerCoreInt > 1 ? result.cores - result.physicalCores : result.cores;
-            result.efficiencyCores = threadsPerCoreInt > 1 ? result.cores - (threadsPerCoreInt * result.performanceCores) : 0;
-            result.processors = processorsInt;
-            result.governor = util.getValue(lines, 'governor') || '';
-
-            // Test Raspberry
-            if (result.vendor === 'ARM' && util.isRaspberry()) {
-              const rPIRevision = util.decodePiCpuinfo();
-              result.family = result.manufacturer;
-              result.manufacturer = rPIRevision.manufacturer;
-              result.brand = rPIRevision.processor;
-              result.revision = rPIRevision.revisionCode;
-              result.socket = 'SOC';
-            }
-
-            // Test RISC-V
-            if (util.getValue(lines, 'architecture') === 'riscv64') {
-              const linesRiscV = fs.readFileSync('/proc/cpuinfo').toString().split('\n');
-              const uarch = util.getValue(linesRiscV, 'uarch') || '';
-              if (uarch.indexOf(',') > -1) {
-                const split = uarch.split(',');
-                result.manufacturer = cpuManufacturer(split[0]);
-                result.brand = split[1];
-              }
-            }
-
-            // socket type
-            let lines2 = [];
-            exec('export LC_ALL=C; dmidecode –t 4 2>/dev/null | grep "Upgrade: Socket"; unset LC_ALL', function (error2, stdout2) {
-              lines2 = stdout2.toString().split('\n');
-              if (lines2 && lines2.length) {
-                result.socket = util.getValue(lines2, 'Upgrade').replace('Socket', '').trim() || result.socket;
-              }
-              resolve(result);
-            });
-          });
-        }
-        if (_freebsd || _openbsd || _netbsd) {
-          let modelline = '';
-          let lines = [];
-          if (os.cpus()[0] && os.cpus()[0].model) { modelline = os.cpus()[0].model; }
-          exec('export LC_ALL=C; dmidecode -t 4; dmidecode -t 7 unset LC_ALL', function (error, stdout) {
-            let cache = [];
-            if (!error) {
-              const data = stdout.toString().split('# dmidecode');
-              const processor = data.length > 1 ? data[1] : '';
-              cache = data.length > 2 ? data[2].split('Cache Information') : [];
-
-              lines = processor.split('\n');
-            }
-            result.brand = modelline.split('@')[0].trim();
-            result.speed = modelline.split('@')[1] ? parseFloat(modelline.split('@')[1].trim()) : 0;
-            if (result.speed === 0 && (result.brand.indexOf('AMD') > -1 || result.brand.toLowerCase().indexOf('ryzen') > -1)) {
-              result.speed = getAMDSpeed(result.brand);
-            }
-            if (result.speed === 0) {
-              const current = getCpuCurrentSpeedSync();
-              if (current.avg !== 0) { result.speed = current.avg; }
-            }
-            _cpu_speed = result.speed;
-            result.speedMin = result.speed;
-            result.speedMax = Math.round(parseFloat(util.getValue(lines, 'max speed').replace(/Mhz/g, '')) / 10.0) / 100;
-
-            result = cpuBrandManufacturer(result);
-            result.vendor = cpuManufacturer(util.getValue(lines, 'manufacturer'));
-            let sig = util.getValue(lines, 'signature');
-            sig = sig.split(',');
-            for (let i = 0; i < sig.length; i++) {
-              sig[i] = sig[i].trim();
-            }
-            result.family = util.getValue(sig, 'Family', ' ', true);
-            result.model = util.getValue(sig, 'Model', ' ', true);
-            result.stepping = util.getValue(sig, 'Stepping', ' ', true);
-            result.revision = '';
-            const voltage = parseFloat(util.getValue(lines, 'voltage'));
-            result.voltage = isNaN(voltage) ? '' : voltage.toFixed(2);
-            for (let i = 0; i < cache.length; i++) {
-              lines = cache[i].split('\n');
-              let cacheType = util.getValue(lines, 'Socket Designation').toLowerCase().replace(' ', '-').split('-');
-              cacheType = cacheType.length ? cacheType[0] : '';
-              const sizeParts = util.getValue(lines, 'Installed Size').split(' ');
-              let size = parseInt(sizeParts[0], 10);
-              const unit = sizeParts.length > 1 ? sizeParts[1] : 'kb';
-              size = size * (unit === 'kb' ? 1024 : (unit === 'mb' ? 1024 * 1024 : (unit === 'gb' ? 1024 * 1024 * 1024 : 1)));
-              if (cacheType) {
-                if (cacheType === 'l1') {
-                  result.cache[cacheType + 'd'] = size / 2;
-                  result.cache[cacheType + 'i'] = size / 2;
-                } else {
-                  result.cache[cacheType] = size;
-                }
-              }
-            }
-            // socket type
-            result.socket = util.getValue(lines, 'Upgrade').replace('Socket', '').trim();
-            // # threads / # cores
-            const threadCount = util.getValue(lines, 'thread count').trim();
-            const coreCount = util.getValue(lines, 'core count').trim();
-            if (coreCount && threadCount) {
-              result.cores = parseInt(threadCount, 10);
-              result.physicalCores = parseInt(coreCount, 10);
-            }
             resolve(result);
           });
-        }
-        if (_sunos) {
+        } catch (e) {
           resolve(result);
         }
-        if (_windows) {
-          try {
-            const workload = [];
-            workload.push(util.powerShell('Get-CimInstance Win32_processor | select Name, Revision, L2CacheSize, L3CacheSize, Manufacturer, MaxClockSpeed, Description, UpgradeMethod, Caption, NumberOfLogicalProcessors, NumberOfCores | fl'));
-            workload.push(util.powerShell('Get-CimInstance Win32_CacheMemory | select CacheType,InstalledSize,Level | fl'));
-            workload.push(util.powerShell('(Get-CimInstance Win32_ComputerSystem).HypervisorPresent'));
-
-            Promise.all(
-              workload
-            ).then((data) => {
-              let lines = data[0].split('\r\n');
-              let name = util.getValue(lines, 'name', ':') || '';
-              if (name.indexOf('@') >= 0) {
-                result.brand = name.split('@')[0].trim();
-                result.speed = name.split('@')[1] ? parseFloat(name.split('@')[1].trim()) : 0;
-                _cpu_speed = result.speed;
-              } else {
-                result.brand = name.trim();
-                result.speed = 0;
-              }
-              result = cpuBrandManufacturer(result);
-              result.revision = util.getValue(lines, 'revision', ':');
-              result.vendor = util.getValue(lines, 'manufacturer', ':');
-              result.speedMax = Math.round(parseFloat(util.getValue(lines, 'maxclockspeed', ':').replace(/,/g, '.')) / 10.0) / 100;
-              if (result.speed === 0 && (result.brand.indexOf('AMD') > -1 || result.brand.toLowerCase().indexOf('ryzen') > -1)) {
-                result.speed = getAMDSpeed(result.brand);
-              }
-              if (result.speed === 0) {
-                result.speed = result.speedMax;
-              }
-              result.speedMin = result.speed;
-
-              let description = util.getValue(lines, 'description', ':').split(' ');
-              for (let i = 0; i < description.length; i++) {
-                if (description[i].toLowerCase().startsWith('family') && (i + 1) < description.length && description[i + 1]) {
-                  result.family = description[i + 1];
-                }
-                if (description[i].toLowerCase().startsWith('model') && (i + 1) < description.length && description[i + 1]) {
-                  result.model = description[i + 1];
-                }
-                if (description[i].toLowerCase().startsWith('stepping') && (i + 1) < description.length && description[i + 1]) {
-                  result.stepping = description[i + 1];
-                }
-              }
-              // socket type
-              const socketId = util.getValue(lines, 'UpgradeMethod', ':');
-              if (socketTypes[socketId]) {
-                result.socket = socketTypes[socketId];
-              }
-              const socketByName = getSocketTypesByName(name);
-              if (socketByName) {
-                result.socket = socketByName;
-              }
-              // # threads / # cores
-              const countProcessors = util.countLines(lines, 'Caption');
-              const countThreads = util.getValue(lines, 'NumberOfLogicalProcessors', ':');
-              const countCores = util.getValue(lines, 'NumberOfCores', ':');
-              if (countProcessors) {
-                result.processors = parseInt(countProcessors) || 1;
-              }
-              if (countCores && countThreads) {
-                result.cores = parseInt(countThreads) || util.cores();
-                result.physicalCores = parseInt(countCores) || util.cores();
-              }
-              if (countProcessors > 1) {
-                result.cores = result.cores * countProcessors;
-                result.physicalCores = result.physicalCores * countProcessors;
-              }
-              result.cache = parseWinCache(data[0], data[1]);
-              const hyperv = data[2] ? data[2].toString().toLowerCase() : '';
-              result.virtualization = hyperv.indexOf('true') !== -1;
-
-              resolve(result);
-            });
-          } catch (e) {
-            resolve(result);
-          }
-        }
-      });
+      }
     });
   });
 }
@@ -968,11 +978,12 @@ function getCpu() {
 // --------------------------
 // CPU - Processor Data
 
-function cpu(callback) {
+function cpu(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
-      getCpu().then(result => {
+      getCpu(options).then(result => {
         if (callback) { callback(result); }
         resolve(result);
       });
@@ -1059,7 +1070,8 @@ exports.cpuCurrentSpeed = cpuCurrentSpeed;
 // CPU - temperature
 // if sensors are installed
 
-function cpuTemperature(callback) {
+function cpuTemperature(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
@@ -1279,7 +1291,7 @@ function cpuTemperature(callback) {
       }
       if (_windows) {
         try {
-          util.powerShell('Get-CimInstance MSAcpi_ThermalZoneTemperature -Namespace "root/wmi" | Select CurrentTemperature').then((stdout, error) => {
+          util.powerShell('Get-CimInstance MSAcpi_ThermalZoneTemperature -Namespace "root/wmi" | Select CurrentTemperature', options).then((stdout, error) => {
             if (!error) {
               let sum = 0;
               let lines = stdout.split('\r\n').filter(line => line.trim() !== '').filter((line, idx) => idx > 0);
@@ -1312,14 +1324,15 @@ exports.cpuTemperature = cpuTemperature;
 // --------------------------
 // CPU Flags
 
-function cpuFlags(callback) {
+function cpuFlags(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
       let result = '';
       if (_windows) {
         try {
-          exec('reg query "HKEY_LOCAL_MACHINE\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0" /v FeatureSet', util.execOptsWin, function (error, stdout) {
+          util.powerShell('reg query "HKEY_LOCAL_MACHINE\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0" /v FeatureSet', options).then((stdout, error) => {
             if (!error) {
               let flag_hex = stdout.split('0x').pop().trim();
               let flag_bin_unpadded = parseInt(flag_hex, 16).toString(2);
@@ -1421,7 +1434,8 @@ exports.cpuFlags = cpuFlags;
 // --------------------------
 // CPU Cache
 
-function cpuCache(callback) {
+function cpuCache(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
@@ -1521,8 +1535,8 @@ function cpuCache(callback) {
       if (_windows) {
         try {
           const workload = [];
-          workload.push(util.powerShell('Get-CimInstance Win32_processor | select L2CacheSize, L3CacheSize | fl'));
-          workload.push(util.powerShell('Get-CimInstance Win32_CacheMemory | select CacheType,InstalledSize,Level | fl'));
+          workload.push(util.powerShell('Get-CimInstance Win32_processor | select L2CacheSize, L3CacheSize | fl', options));
+          workload.push(util.powerShell('Get-CimInstance Win32_CacheMemory | select CacheType,InstalledSize,Level | fl', options));
 
           Promise.all(
             workload

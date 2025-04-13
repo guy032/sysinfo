@@ -20,48 +20,95 @@ const exec = require('child_process').exec;
 const execSync = require('child_process').execSync;
 
 let _platform = process.platform;
+let _linux, _darwin, _windows, _freebsd, _openbsd, _netbsd, _sunos;
 
-const _linux = (_platform === 'linux' || _platform === 'android');
-const _darwin = (_platform === 'darwin');
-const _windows = (_platform === 'win32');
-const _freebsd = (_platform === 'freebsd');
-const _openbsd = (_platform === 'openbsd');
-const _netbsd = (_platform === 'netbsd');
-const _sunos = (_platform === 'sunos');
+function setPlatform(platform) {
+  _platform = platform || process.platform;
+  _linux = (_platform === 'linux' || _platform === 'android');
+  _darwin = (_platform === 'darwin');
+  _windows = (_platform === 'win32');
+  _freebsd = (_platform === 'freebsd');
+  _openbsd = (_platform === 'openbsd');
+  _netbsd = (_platform === 'netbsd');
+  _sunos = (_platform === 'sunos');
+}
+
+setPlatform(_platform);
 
 // --------------------------
 // Get current time and OS uptime
 
-function time() {
-  let t = new Date().toString().split(' ');
-  const result = {
-    current: Date.now(),
-    uptime: os.uptime(),
-    timezone: (t.length >= 7) ? t[5] : '',
-    timezoneName: Intl ? Intl.DateTimeFormat().resolvedOptions().timeZone : (t.length >= 7) ? t.slice(6).join(' ').replace(/\(/g, '').replace(/\)/g, '') : ''
-  };
-  if (_darwin || _linux) {
-    try {
-      const stdout = execSync('date +%Z && date +%z && ls -l /etc/localtime 2>/dev/null', util.execOptsLinux);
-      const lines = stdout.toString().split(os.EOL);
-      if (lines.length > 3 && !lines[0]) {
-        lines.shift();
+function time(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
+  
+  return new Promise((resolve) => {
+    process.nextTick(() => {
+      let result = {};
+      
+      /* if (_darwin || _linux) {
+        try {
+          const stdout = execSync('date +%Z && date +%z && ls -l /etc/localtime 2>/dev/null', util.execOptsLinux);
+          const lines = stdout.toString().split('\r\n');
+          if (lines.length > 3 && !lines[0]) {
+            lines.shift();
+          }
+          let timezone = lines[0] || '';
+          if (timezone.startsWith('+') || timezone.startsWith('-')) {
+            timezone = 'GMT';
+          }
+          result = {
+            current: Date.now(),
+            uptime: os.uptime(),
+            timezone: lines[1] ? timezone + lines[1] : timezone,
+            timezoneName: lines[2] && lines[2].indexOf('/zoneinfo/') > 0 ? (lines[2].split('/zoneinfo/')[1] || '') : ''
+          };
+          if (callback) {
+            callback(result);
+          }
+          resolve(result);
+        } catch (e) {
+          util.noop();
+          if (callback) {
+            callback(result);
+          }
+          resolve(result);
+        }
+      } else  */ if (_windows) {
+        try {
+          const workload = [];
+          workload.push(util.powerShell('$date = Get-Date; Write-Output $date.Ticks', options));
+          workload.push(util.powerShell('$uptime = (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime; $uptimeSpan = (Get-Date) - $uptime; $uptimeSeconds = [math]::Floor($uptimeSpan.TotalSeconds); Write-Output $uptimeSeconds', options));
+          workload.push(util.powerShell('(Get-TimeZone).DisplayName', options));
+          workload.push(util.powerShell('(Get-TimeZone).Id', options));
+
+          util.promiseAll(
+            workload
+          ).then((data) => {
+            result = {
+              current: parseInt(data.results[0]) / 10000 - 62135596800000, // Convert Windows ticks to Unix timestamp
+              uptime: parseInt(data.results[1]),
+              timezone: data.results[2],
+              timezoneName: data.results[3]
+            };
+            if (callback) {
+              callback(result);
+            }
+            resolve(result);
+          });
+        } catch (e) {
+          if (callback) {
+            callback(result);
+          }
+          resolve(result);
+        }
+      } else {
+        if (callback) {
+          callback(result);
+        }
+        resolve(result);
       }
-      let timezone = lines[0] || '';
-      if (timezone.startsWith('+') || timezone.startsWith('-')) {
-        timezone = 'GMT';
-      }
-      return {
-        current: Date.now(),
-        uptime: os.uptime(),
-        timezone: lines[1] ? timezone + lines[1] : timezone,
-        timezoneName: lines[2] && lines[2].indexOf('/zoneinfo/') > 0 ? (lines[2].split('/zoneinfo/')[1] || '') : ''
-      };
-    } catch (e) {
-      util.noop();
-    }
-  }
-  return result;
+    });
+  });
 }
 
 exports.time = time;
@@ -69,7 +116,9 @@ exports.time = time;
 // --------------------------
 // Get logo filename of OS distribution
 
-function getLogoFile(distro) {
+function getLogoFile(options = {}, distro) {
+  if (options.platform) setPlatform(options.platform);
+
   distro = distro || '';
   distro = distro.toLowerCase();
   let result = _platform;
@@ -193,41 +242,10 @@ function getLogoFile(distro) {
 }
 
 // --------------------------
-// FQDN
-
-function getFQDN() {
-  let fqdn = os.hostname;
-  if (_linux || _darwin) {
-    try {
-      const stdout = execSync('hostname -f 2>/dev/null', util.execOptsLinux);
-      fqdn = stdout.toString().split(os.EOL)[0];
-    } catch (e) {
-      util.noop();
-    }
-  }
-  if (_freebsd || _openbsd || _netbsd) {
-    try {
-      const stdout = execSync('hostname 2>/dev/null');
-      fqdn = stdout.toString().split(os.EOL)[0];
-    } catch (e) {
-      util.noop();
-    }
-  }
-  if (_windows) {
-    try {
-      const stdout = execSync('echo %COMPUTERNAME%.%USERDNSDOMAIN%', util.execOptsWin);
-      fqdn = stdout.toString().replace('.%USERDNSDOMAIN%', '').split(os.EOL)[0];
-    } catch (e) {
-      util.noop();
-    }
-  }
-  return fqdn;
-}
-
-// --------------------------
 // OS Information
 
-function osInfo(callback) {
+function osInfo(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
@@ -237,10 +255,10 @@ function osInfo(callback) {
         distro: 'unknown',
         release: 'unknown',
         codename: '',
-        kernel: os.release(),
-        arch: os.arch(),
-        hostname: os.hostname(),
-        fqdn: getFQDN(),
+        kernel: '',
+        arch: '',
+        hostname: '',
+        fqdn: '',
         codepage: '',
         logofile: '',
         serial: '',
@@ -268,7 +286,7 @@ function osInfo(callback) {
             }
           });
           result.distro = (release.DISTRIB_ID || release.NAME || 'unknown').replace(/"/g, '');
-          result.logofile = getLogoFile(result.distro);
+          result.logofile = getLogoFile(options, result.distro);
           let releaseVersion = (release.VERSION || '').replace(/"/g, '');
           let codename = (release.DISTRIB_CODENAME || release.VERSION_CODENAME || '').replace(/"/g, '');
           const prettyName = (release.PRETTY_NAME || '').replace(/"/g, '');
@@ -300,7 +318,7 @@ function osInfo(callback) {
         exec('sysctl kern.ostype kern.osrelease kern.osrevision kern.hostuuid machdep.bootmethod kern.geom.confxml', function (error, stdout) {
           let lines = stdout.toString().split('\n');
           const distro = util.getValue(lines, 'kern.ostype');
-          const logofile = getLogoFile(distro);
+          const logofile = getLogoFile(options, distro);
           const release = util.getValue(lines, 'kern.osrelease').split('-')[0];
           const serial = util.getValue(lines, 'kern.uuid');
           const bootmethod = util.getValue(lines, 'machdep.bootmethod');
@@ -326,7 +344,7 @@ function osInfo(callback) {
           result.distro = util.getValue(lines, 'ProductName');
           result.release = (util.getValue(lines, 'ProductVersion', ':', true, true) + ' ' + util.getValue(lines, 'ProductVersionExtra', ':', true, true)).trim();
           result.build = util.getValue(lines, 'BuildVersion');
-          result.logofile = getLogoFile(result.distro);
+          result.logofile = getLogoFile(options, result.distro);
           result.codename = 'macOS';
           result.codename = (result.release.indexOf('10.4') > -1 ? 'OS X Tiger' : result.codename);
           result.codename = (result.release.indexOf('10.5') > -1 ? 'OS X Leopard' : result.codename);
@@ -358,19 +376,19 @@ function osInfo(callback) {
         exec('uname -o', function (error, stdout) {
           let lines = stdout.toString().split('\n');
           result.distro = lines[0];
-          result.logofile = getLogoFile(result.distro);
+          result.logofile = getLogoFile(options, result.distro);
           if (callback) { callback(result); }
           resolve(result);
         });
       }
       if (_windows) {
-        result.logofile = getLogoFile();
+        result.logofile = getLogoFile(options);
         result.release = result.kernel;
         try {
           const workload = [];
-          workload.push(util.powerShell('Get-CimInstance Win32_OperatingSystem | select Caption,SerialNumber,BuildNumber,ServicePackMajorVersion,ServicePackMinorVersion | fl'));
-          workload.push(util.powerShell('(Get-CimInstance Win32_ComputerSystem).HypervisorPresent'));
-          workload.push(util.powerShell('Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SystemInformation]::TerminalServerSession'));
+          workload.push(util.powerShell('Get-CimInstance Win32_OperatingSystem | select Caption,SerialNumber,BuildNumber,ServicePackMajorVersion,ServicePackMinorVersion | fl', options));
+          workload.push(util.powerShell('(Get-CimInstance Win32_ComputerSystem).HypervisorPresent', options));
+          workload.push(util.powerShell('Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SystemInformation]::TerminalServerSession', options));
           util.promiseAll(
             workload
           ).then((data) => {
@@ -379,7 +397,7 @@ function osInfo(callback) {
             result.serial = util.getValue(lines, 'SerialNumber', ':').trim();
             result.build = util.getValue(lines, 'BuildNumber', ':').trim();
             result.servicepack = util.getValue(lines, 'ServicePackMajorVersion', ':').trim() + '.' + util.getValue(lines, 'ServicePackMinorVersion', ':').trim();
-            result.codepage = util.getCodepage();
+            result.codepage = util.getCodepage(options);
             const hyperv = data.results[1] ? data.results[1].toString().toLowerCase() : '';
             result.hypervisor = hyperv.indexOf('true') !== -1;
             const term = data.results[2] ? data.results[2].toString() : '';
@@ -449,666 +467,62 @@ function isUefiWindows() {
   });
 }
 
-function versions(apps, callback) {
-  let versionObject = {
-    kernel: os.release(),
-    apache: '',
-    bash: '',
-    bun: '',
-    deno: '',
-    docker: '',
-    dotnet: '',
-    fish: '',
-    gcc: '',
-    git: '',
-    grunt: '',
-    gulp: '',
-    homebrew: '',
-    java: '',
-    mongodb: '',
-    mysql: '',
-    nginx: '',
-    node: '', //process.versions.node,
-    npm: '',
-    openssl: '',
-    perl: '',
-    php: '',
-    pip3: '',
-    pip: '',
-    pm2: '',
-    postfix: '',
-    postgresql: '',
-    powershell: '',
-    python3: '',
-    python: '',
-    redis: '',
-    systemOpenssl: '',
-    systemOpensslLib: '',
-    tsc: '',
-    v8: process.versions.v8,
-    virtualbox: '',
-    yarn: '',
-    zsh: ''
-  };
-
-  function checkVersionParam(apps) {
-    if (apps === '*') {
-      return {
-        versions: versionObject,
-        counter: 34
-      };
-    }
-    if (!Array.isArray(apps)) {
-      apps = apps.trim().toLowerCase().replace(/,+/g, '|').replace(/ /g, '|');
-      apps = apps.split('|');
-      const result = {
-        versions: {},
-        counter: 0
-      };
-      apps.forEach(el => {
-        if (el) {
-          for (let key in versionObject) {
-            if ({}.hasOwnProperty.call(versionObject, key)) {
-              if (key.toLowerCase() === el.toLowerCase() && !{}.hasOwnProperty.call(result.versions, key)) {
-                result.versions[key] = versionObject[key];
-                if (key === 'openssl') {
-                  result.versions.systemOpenssl = '';
-                  result.versions.systemOpensslLib = '';
-                }
-
-                if (!result.versions[key]) { result.counter++; }
-              }
-            }
-          }
-        }
-      });
-      return result;
-    }
-  }
-
+function versions(options = {}, apps, callback) {
+  if (options.platform) setPlatform(options.platform);
+  
   return new Promise((resolve) => {
     process.nextTick(() => {
-      if (util.isFunction(apps) && !callback) {
-        callback = apps;
-        apps = '*';
-      } else {
-        apps = apps || '*';
-        if (typeof apps !== 'string') {
-          if (callback) { callback({}); }
-          return resolve({});
-        }
-      }
-      const appsObj = checkVersionParam(apps);
-      let totalFunctions = appsObj.counter;
+      let apps = [];
 
-      let functionProcessed = (function () {
-        return function () {
-          if (--totalFunctions === 0) {
-            if (callback) {
-              callback(appsObj.versions);
-            }
-            resolve(appsObj.versions);
-          }
-        };
-      })();
+      if (_windows) {
+        try {
+          // First, get all software versions from registry using pagination
+          // Fetch applications in batches of 100 until we get less than 100 results
+          let allApps = [];
+          const batchSize = 100;
+          
+          const fetchBatch = (skip) => {
+            const powershellScript = `Get-ItemProperty -Path "HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*", "HKLM:\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*", "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*" | Where-Object { $_.DisplayName } | ForEach-Object { [PSCustomObject]@{ Name = $_.DisplayName; Version = $_.DisplayVersion; Publisher = $_.Publisher; InstallDate = $_.InstallDate; InstallSource = $_.InstallSource; UninstallString = $_.UninstallString; InstallLocation = $_.InstallLocation; EstimatedSizeMB = if ($_.EstimatedSize) { [math]::Round($_.EstimatedSize / 1024, 2) } else { $null } } } | Sort-Object Name | Select-Object -Skip ${skip} -First ${batchSize} | ConvertTo-Json -Depth 3 -Compress`;
 
-      let cmd = '';
-      try {
-        if ({}.hasOwnProperty.call(appsObj.versions, 'openssl')) {
-          appsObj.versions.openssl = process.versions.openssl;
-          exec('openssl version', function (error, stdout) {
-            if (!error) {
-              let openssl_string = stdout.toString().split('\n')[0].trim();
-              let openssl = openssl_string.split(' ');
-              appsObj.versions.systemOpenssl = openssl.length > 0 ? openssl[1] : openssl[0];
-              appsObj.versions.systemOpensslLib = openssl.length > 0 ? openssl[0] : 'openssl';
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'npm')) {
-          exec('npm -v', function (error, stdout) {
-            if (!error) {
-              appsObj.versions.npm = stdout.toString().split('\n')[0];
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'pm2')) {
-          cmd = 'pm2';
-          if (_windows) {
-            cmd += '.cmd';
-          }
-          exec(`${cmd} -v`, function (error, stdout) {
-            if (!error) {
-              let pm2 = stdout.toString().split('\n')[0].trim();
-              if (!pm2.startsWith('[PM2]')) {
-                appsObj.versions.pm2 = pm2;
-              }
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'yarn')) {
-          exec('yarn --version', function (error, stdout) {
-            if (!error) {
-              appsObj.versions.yarn = stdout.toString().split('\n')[0];
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'gulp')) {
-          cmd = 'gulp';
-          if (_windows) {
-            cmd += '.cmd';
-          }
-          exec(`${cmd} --version`, function (error, stdout) {
-            if (!error) {
-              const gulp = stdout.toString().split('\n')[0] || '';
-              appsObj.versions.gulp = (gulp.toLowerCase().split('version')[1] || '').trim();
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'homebrew')) {
-          cmd = 'brew';
-          exec(`${cmd} --version`, function (error, stdout) {
-            if (!error) {
-              const brew = stdout.toString().split('\n')[0] || '';
-              appsObj.versions.homebrew = (brew.toLowerCase().split(' ')[1] || '').trim();
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'tsc')) {
-          cmd = 'tsc';
-          if (_windows) {
-            cmd += '.cmd';
-          }
-          exec(`${cmd} --version`, function (error, stdout) {
-            if (!error) {
-              const tsc = stdout.toString().split('\n')[0] || '';
-              appsObj.versions.tsc = (tsc.toLowerCase().split('version')[1] || '').trim();
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'grunt')) {
-          cmd = 'grunt';
-          if (_windows) {
-            cmd += '.cmd';
-          }
-          exec(`${cmd} --version`, function (error, stdout) {
-            if (!error) {
-              const grunt = stdout.toString().split('\n')[0] || '';
-              appsObj.versions.grunt = (grunt.toLowerCase().split('cli v')[1] || '').trim();
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'git')) {
-          if (_darwin) {
-            const gitHomebrewExists = fs.existsSync('/usr/local/Cellar/git') || fs.existsSync('/opt/homebrew/bin/git');
-            if (util.darwinXcodeExists() || gitHomebrewExists) {
-              exec('git --version', function (error, stdout) {
-                if (!error) {
-                  let git = stdout.toString().split('\n')[0] || '';
-                  git = (git.toLowerCase().split('version')[1] || '').trim();
-                  appsObj.versions.git = (git.split(' ')[0] || '').trim();
-                }
-                functionProcessed();
-              });
-            } else {
-              functionProcessed();
-            }
-          } else {
-            exec('git --version', function (error, stdout) {
-              if (!error) {
-                let git = stdout.toString().split('\n')[0] || '';
-                git = (git.toLowerCase().split('version')[1] || '').trim();
-                appsObj.versions.git = (git.split(' ')[0] || '').trim();
-              }
-              functionProcessed();
-            });
-          }
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'apache')) {
-          exec('apachectl -v 2>&1', function (error, stdout) {
-            if (!error) {
-              const apache = (stdout.toString().split('\n')[0] || '').split(':');
-              appsObj.versions.apache = (apache.length > 1 ? apache[1].replace('Apache', '').replace('/', '').split('(')[0].trim() : '');
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'nginx')) {
-          exec('nginx -v 2>&1', function (error, stdout) {
-            if (!error) {
-              const nginx = stdout.toString().split('\n')[0] || '';
-              appsObj.versions.nginx = (nginx.toLowerCase().split('/')[1] || '').trim();
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'mysql')) {
-          exec('mysql -V', function (error, stdout) {
-            if (!error) {
-              let mysql = stdout.toString().split('\n')[0] || '';
-              mysql = mysql.toLowerCase();
-              if (mysql.indexOf(',') > -1) {
-                mysql = (mysql.split(',')[0] || '').trim();
-                const parts = mysql.split(' ');
-                appsObj.versions.mysql = (parts[parts.length - 1] || '').trim();
-              } else {
-                if (mysql.indexOf(' ver ') > -1) {
-                  mysql = mysql.split(' ver ')[1];
-                  appsObj.versions.mysql = mysql.split(' ')[0];
-                }
-              }
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'php')) {
-          exec('php -v', function (error, stdout) {
-            if (!error) {
-              const php = stdout.toString().split('\n')[0] || '';
-              let parts = php.split('(');
-              if (parts[0].indexOf('-')) {
-                parts = parts[0].split('-');
-              }
-              appsObj.versions.php = parts[0].replace(/[^0-9.]/g, '');
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'redis')) {
-          exec('redis-server --version', function (error, stdout) {
-            if (!error) {
-              const redis = stdout.toString().split('\n')[0] || '';
-              const parts = redis.split(' ');
-              appsObj.versions.redis = util.getValue(parts, 'v', '=', true);
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'docker')) {
-          exec('docker --version', function (error, stdout) {
-            if (!error) {
-              const docker = stdout.toString().split('\n')[0] || '';
-              const parts = docker.split(' ');
-              appsObj.versions.docker = parts.length > 2 && parts[2].endsWith(',') ? parts[2].slice(0, -1) : '';
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'postfix')) {
-          exec('postconf -d | grep mail_version', function (error, stdout) {
-            if (!error) {
-              const postfix = stdout.toString().split('\n') || [];
-              appsObj.versions.postfix = util.getValue(postfix, 'mail_version', '=', true);
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'mongodb')) {
-          exec('mongod --version', function (error, stdout) {
-            if (!error) {
-              const mongodb = stdout.toString().split('\n')[0] || '';
-              appsObj.versions.mongodb = (mongodb.toLowerCase().split(',')[0] || '').replace(/[^0-9.]/g, '');
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'postgresql')) {
-          if (_linux) {
-            exec('locate bin/postgres', function (error, stdout) {
-              if (!error) {
-                const postgresqlBin = stdout.toString().split('\n').sort();
-                if (postgresqlBin.length) {
-                  exec(postgresqlBin[postgresqlBin.length - 1] + ' -V', function (error, stdout) {
-                    if (!error) {
-                      const postgresql = stdout.toString().split('\n')[0].split(' ') || [];
-                      appsObj.versions.postgresql = postgresql.length ? postgresql[postgresql.length - 1] : '';
-                    }
-                    functionProcessed();
-                  });
-                } else {
-                  functionProcessed();
-                }
-              } else {
-                exec('psql -V', function (error, stdout) {
-                  if (!error) {
-                    const postgresql = stdout.toString().split('\n')[0].split(' ') || [];
-                    appsObj.versions.postgresql = postgresql.length ? postgresql[postgresql.length - 1] : '';
-                    appsObj.versions.postgresql = appsObj.versions.postgresql.split('-')[0];
+            return util.powerShell(powershellScript, options).then(stdout => {
+              try {
+                const batchApps = JSON.parse(stdout);
+                // Check if we got an array or a single object
+                const appsArray = Array.isArray(batchApps) ? batchApps : (batchApps ? [batchApps] : []);
+                
+                if (appsArray.length > 0) {
+                  allApps = allApps.concat(appsArray);
+                  
+                  // If we got 50 items, there might be more to fetch
+                  if (appsArray.length === batchSize) {
+                    return fetchBatch(skip + batchSize);
                   }
-                  functionProcessed();
-                });
-              }
-            });
-          } else {
-            if (_windows) {
-              util.powerShell('Get-CimInstance Win32_Service | select caption | fl').then((stdout) => {
-                let serviceSections = stdout.split(/\n\s*\n/);
-                serviceSections.forEach((item) => {
-                  if (item.trim() !== '') {
-                    let lines = item.trim().split('\r\n');
-                    let srvCaption = util.getValue(lines, 'caption', ':', true).toLowerCase();
-                    if (srvCaption.indexOf('postgresql') > -1) {
-                      const parts = srvCaption.split(' server ');
-                      if (parts.length > 1) {
-                        appsObj.versions.postgresql = parts[1];
-                      }
-                    }
-                  }
-                });
-                functionProcessed();
-              });
-            } else {
-              exec('postgres -V', function (error, stdout) {
-                if (!error) {
-                  const postgresql = stdout.toString().split('\n')[0].split(' ') || [];
-                  appsObj.versions.postgresql = postgresql.length ? postgresql[postgresql.length - 1] : '';
-                } else {
-                  exec('pg_config --version', function (error, stdout) {
-                    if (!error) {
-                      const postgresql = stdout.toString().split('\n')[0].split(' ') || [];
-                      appsObj.versions.postgresql = postgresql.length ? postgresql[postgresql.length - 1] : '';
-                    }
-                  });
                 }
-                functionProcessed();
-              });
-            }
-          }
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'perl')) {
-          exec('perl -v', function (error, stdout) {
-            if (!error) {
-              const perl = stdout.toString().split('\n') || '';
-              while (perl.length > 0 && perl[0].trim() === '') {
-                perl.shift();
+                
+                // We've retrieved all apps, process them
+                
+                apps = allApps;
+                
+                return apps;
+              } catch (e) {
+                console.log('Error parsing PowerShell output:', e);
+                return apps;
               }
-              if (perl.length > 0) {
-                appsObj.versions.perl = perl[0].split('(').pop().split(')')[0].replace('v', '');
-              }
-            }
-            functionProcessed();
+            }).catch(e => {
+              console.log('Error executing PowerShell command:', e);
+              return apps;
+            });
+          };
+          
+          // Start fetching batches from index 0
+          fetchBatch(0).then(versions => {
+            if (callback) { callback(versions); }
+            resolve(versions);
           });
+        } catch (e) {
+          if (callback) { callback(apps); }
+          resolve(apps);
         }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'python')) {
-          if (_darwin) {
-            try {
-              const stdout = execSync('sw_vers');
-              const lines = stdout.toString().split('\n');
-              const osVersion = util.getValue(lines, 'ProductVersion', ':');
-              const gitHomebrewExists1 = fs.existsSync('/usr/local/Cellar/python');
-              const gitHomebrewExists2 = fs.existsSync('/opt/homebrew/bin/python');
-              if ((util.darwinXcodeExists() && util.semverCompare('12.0.1', osVersion) < 0) || gitHomebrewExists1 || gitHomebrewExists2) {
-                const cmd = gitHomebrewExists1 ? '/usr/local/Cellar/python -V 2>&1' : (gitHomebrewExists2 ? '/opt/homebrew/bin/python -V 2>&1' : 'python -V 2>&1');
-                exec(cmd, function (error, stdout) {
-                  if (!error) {
-                    const python = stdout.toString().split('\n')[0] || '';
-                    appsObj.versions.python = python.toLowerCase().replace('python', '').trim();
-                  }
-                  functionProcessed();
-                });
-              } else {
-                functionProcessed();
-              }
-            } catch (e) {
-              functionProcessed();
-            }
-
-          } else {
-            exec('python -V 2>&1', function (error, stdout) {
-              if (!error) {
-                const python = stdout.toString().split('\n')[0] || '';
-                appsObj.versions.python = python.toLowerCase().replace('python', '').trim();
-              }
-              functionProcessed();
-            });
-          }
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'python3')) {
-          if (_darwin) {
-            const gitHomebrewExists = fs.existsSync('/usr/local/Cellar/python3') || fs.existsSync('/opt/homebrew/bin/python3');
-            if (util.darwinXcodeExists() || gitHomebrewExists) {
-              exec('python3 -V 2>&1', function (error, stdout) {
-                if (!error) {
-                  const python = stdout.toString().split('\n')[0] || '';
-                  appsObj.versions.python3 = python.toLowerCase().replace('python', '').trim();
-                }
-                functionProcessed();
-              });
-            } else {
-              functionProcessed();
-            }
-          } else {
-            exec('python3 -V 2>&1', function (error, stdout) {
-              if (!error) {
-                const python = stdout.toString().split('\n')[0] || '';
-                appsObj.versions.python3 = python.toLowerCase().replace('python', '').trim();
-              }
-              functionProcessed();
-            });
-          }
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'pip')) {
-          if (_darwin) {
-            const gitHomebrewExists = fs.existsSync('/usr/local/Cellar/pip') || fs.existsSync('/opt/homebrew/bin/pip');
-            if (util.darwinXcodeExists() || gitHomebrewExists) {
-              exec('pip -V 2>&1', function (error, stdout) {
-                if (!error) {
-                  const pip = stdout.toString().split('\n')[0] || '';
-                  const parts = pip.split(' ');
-                  appsObj.versions.pip = parts.length >= 2 ? parts[1] : '';
-                }
-                functionProcessed();
-              });
-            } else {
-              functionProcessed();
-            }
-          } else {
-            exec('pip -V 2>&1', function (error, stdout) {
-              if (!error) {
-                const pip = stdout.toString().split('\n')[0] || '';
-                const parts = pip.split(' ');
-                appsObj.versions.pip = parts.length >= 2 ? parts[1] : '';
-              }
-              functionProcessed();
-            });
-          }
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'pip3')) {
-          if (_darwin) {
-            const gitHomebrewExists = fs.existsSync('/usr/local/Cellar/pip3') || fs.existsSync('/opt/homebrew/bin/pip3');
-            if (util.darwinXcodeExists() || gitHomebrewExists) {
-              exec('pip3 -V 2>&1', function (error, stdout) {
-                if (!error) {
-                  const pip = stdout.toString().split('\n')[0] || '';
-                  const parts = pip.split(' ');
-                  appsObj.versions.pip3 = parts.length >= 2 ? parts[1] : '';
-                }
-                functionProcessed();
-              });
-            } else {
-              functionProcessed();
-            }
-          } else {
-            exec('pip3 -V 2>&1', function (error, stdout) {
-              if (!error) {
-                const pip = stdout.toString().split('\n')[0] || '';
-                const parts = pip.split(' ');
-                appsObj.versions.pip3 = parts.length >= 2 ? parts[1] : '';
-              }
-              functionProcessed();
-            });
-          }
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'java')) {
-          if (_darwin) {
-            // check if any JVM is installed but avoid dialog box that Java needs to be installed
-            exec('/usr/libexec/java_home -V 2>&1', function (error, stdout) {
-              if (!error && stdout.toString().toLowerCase().indexOf('no java runtime') === -1) {
-                // now this can be done savely
-                exec('java -version 2>&1', function (error, stdout) {
-                  if (!error) {
-                    const java = stdout.toString().split('\n')[0] || '';
-                    const parts = java.split('"');
-                    appsObj.versions.java = parts.length === 3 ? parts[1].trim() : '';
-                  }
-                  functionProcessed();
-                });
-              } else {
-                functionProcessed();
-              }
-            });
-          } else {
-            exec('java -version 2>&1', function (error, stdout) {
-              if (!error) {
-                const java = stdout.toString().split('\n')[0] || '';
-                const parts = java.split('"');
-                appsObj.versions.java = parts.length === 3 ? parts[1].trim() : '';
-              }
-              functionProcessed();
-            });
-          }
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'gcc')) {
-          if ((_darwin && util.darwinXcodeExists()) || !_darwin) {
-            exec('gcc -dumpversion', function (error, stdout) {
-              if (!error) {
-                appsObj.versions.gcc = stdout.toString().split('\n')[0].trim() || '';
-              }
-              if (appsObj.versions.gcc.indexOf('.') > -1) {
-                functionProcessed();
-              } else {
-                exec('gcc --version', function (error, stdout) {
-                  if (!error) {
-                    const gcc = stdout.toString().split('\n')[0].trim();
-                    if (gcc.indexOf('gcc') > -1 && gcc.indexOf(')') > -1) {
-                      const parts = gcc.split(')');
-                      appsObj.versions.gcc = parts[1].trim() || appsObj.versions.gcc;
-                    }
-                  }
-                  functionProcessed();
-                });
-              }
-            });
-          } else {
-            functionProcessed();
-          }
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'virtualbox')) {
-          exec(util.getVboxmanage() + ' -v 2>&1', function (error, stdout) {
-            if (!error) {
-              const vbox = stdout.toString().split('\n')[0] || '';
-              const parts = vbox.split('r');
-              appsObj.versions.virtualbox = parts[0];
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'bash')) {
-          exec('bash --version', function (error, stdout) {
-            if (!error) {
-              const line = stdout.toString().split('\n')[0];
-              const parts = line.split(' version ');
-              if (parts.length > 1) {
-                appsObj.versions.bash = parts[1].split(' ')[0].split('(')[0];
-              }
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'zsh')) {
-          exec('zsh --version', function (error, stdout) {
-            if (!error) {
-              const line = stdout.toString().split('\n')[0];
-              const parts = line.split('zsh ');
-              if (parts.length > 1) {
-                appsObj.versions.zsh = parts[1].split(' ')[0];
-              }
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'fish')) {
-          exec('fish --version', function (error, stdout) {
-            if (!error) {
-              const line = stdout.toString().split('\n')[0];
-              const parts = line.split(' version ');
-              if (parts.length > 1) {
-                appsObj.versions.fish = parts[1].split(' ')[0];
-              }
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'bun')) {
-          exec('bun -v', function (error, stdout) {
-            if (!error) {
-              const line = stdout.toString().split('\n')[0].trim();
-              appsObj.versions.bun = line;
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'deno')) {
-          exec('deno -v', function (error, stdout) {
-            if (!error) {
-              const line = stdout.toString().split('\n')[0].trim();
-              const parts = line.split(' ');
-              if (parts.length > 1) {
-                appsObj.versions.deno = parts[1];
-              }
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'node')) {
-          exec('node -v', function (error, stdout) {
-            if (!error) {
-              let line = stdout.toString().split('\n')[0].trim();
-              if (line.startsWith('v')) { line = line.slice(1); }
-              appsObj.versions.node = line;
-            }
-            functionProcessed();
-          });
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'powershell')) {
-          if (_windows) {
-            util.powerShell('$PSVersionTable').then(stdout => {
-              const lines = stdout.toString().toLowerCase().split('\n').map(line => line.replace(/ +/g, ' ').replace(/ +/g, ':'));
-              appsObj.versions.powershell = util.getValue(lines, 'psversion');
-              functionProcessed();
-            });
-          } else {
-            functionProcessed();
-          }
-        }
-        if ({}.hasOwnProperty.call(appsObj.versions, 'dotnet')) {
-          if (_windows) {
-            util.powerShell('gci "HKLM:\\SOFTWARE\\Microsoft\\NET Framework Setup\\NDP" -recurse | gp -name Version,Release -EA 0 | where { $_.PSChildName -match "^(?!S)\\p{L}"} | select PSChildName, Version, Release').then(stdout => {
-              const lines = stdout.toString().split('\r\n');
-              let dotnet = '';
-              lines.forEach(line => {
-                line = line.replace(/ +/g, ' ');
-                const parts = line.split(' ');
-                dotnet = dotnet || (parts[0].toLowerCase().startsWith('client') && parts.length > 2 ? parts[1].trim() : (parts[0].toLowerCase().startsWith('full') && parts.length > 2 ? parts[1].trim() : ''));
-              });
-              appsObj.versions.dotnet = dotnet.trim();
-              functionProcessed();
-            });
-          } else {
-            functionProcessed();
-          }
-        }
-      } catch (e) {
-        if (callback) { callback(appsObj.versions); }
-        resolve(appsObj.versions);
       }
     });
   });
@@ -1116,24 +530,18 @@ function versions(apps, callback) {
 
 exports.versions = versions;
 
-function shell(callback) {
+function shell(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
+
   return new Promise((resolve) => {
     process.nextTick(() => {
       if (_windows) {
         try {
-          const result = 'CMD';
-          util.powerShell(`Get-CimInstance -className win32_process | where-object {$_.ProcessId -eq ${process.ppid} } | select Name`).then(stdout => {
-            let result = 'CMD';
-            if (stdout) {
-              if (stdout.toString().toLowerCase().indexOf('powershell') >= 0) {
-                result = 'PowerShell';
-              }
-            }
-            if (callback) {
-              callback(result);
-            }
-            resolve(result);
-          });
+          const result = 'PowerShell';
+          if (callback) {
+            callback(result);
+          }
+          resolve(result);
         } catch {
           if (callback) {
             callback(result);
@@ -1158,41 +566,63 @@ function shell(callback) {
 
 exports.shell = shell;
 
-function getUniqueMacAdresses() {
+async function getUniqueMacAdresses(options = {}) {
   let macs = [];
-  try {
-    const ifaces = os.networkInterfaces();
-    for (let dev in ifaces) {
-      if ({}.hasOwnProperty.call(ifaces, dev)) {
-        ifaces[dev].forEach(function (details) {
-          if (details && details.mac && details.mac !== '00:00:00:00:00:00') {
-            const mac = details.mac.toLowerCase();
-            if (macs.indexOf(mac) === -1) {
-              macs.push(mac);
+  
+  // Use PowerShell for Windows
+  if (_windows) {
+    try {
+      // Get network adapters using PowerShell
+      const interfacesCmd = 'Get-NetAdapter | Select-Object -Property Name, InterfaceDescription, Status, MacAddress | Format-List';
+      const interfacesResult = await util.powerShell(interfacesCmd, options);
+      
+      // Parse interfaces information
+      const interfaceSections = interfacesResult.toString().split(/\r?\n\s*\r?\n/).filter(section => section.trim());
+      
+      interfaceSections.forEach(section => {
+        const lines = section.split(/\r?\n/).filter(line => line.trim());
+        let macAddress = '';
+        
+        lines.forEach(line => {
+          const parts = line.split(':');
+          if (parts.length >= 2) {
+            const key = parts[0].trim();
+            const value = parts.slice(1).join(':').trim();
+            
+            if (key === 'MacAddress') {
+              macAddress = value.toLowerCase();
+              if (macAddress && macAddress !== '00:00:00:00:00:00' && macs.indexOf(macAddress) === -1) {
+                macs.push(macAddress);
+              }
             }
           }
         });
-      }
+      });
+    } catch (e) {
+      console.log('Error getting MAC addresses via PowerShell:', e);
     }
-    macs = macs.sort(function (a, b) {
-      if (a < b) { return -1; }
-      if (a > b) { return 1; }
-      return 0;
-    });
-  } catch (e) {
-    macs.push('00:00:00:00:00:00');
   }
+  
+  // Sort MAC addresses
+  macs = macs.sort(function (a, b) {
+    if (a < b) { return -1; }
+    if (a > b) { return 1; }
+    return 0;
+  });
+  
   return macs;
 }
 
-function uuid(callback) {
+function uuid(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
+
   return new Promise((resolve) => {
-    process.nextTick(() => {
+    process.nextTick(async () => {
 
       let result = {
         os: '',
         hardware: '',
-        macs: getUniqueMacAdresses()
+        macs: []
       };
       let parts;
 
@@ -1249,14 +679,15 @@ echo -n "hardware: "; cat /sys/class/dmi/id/product_uuid 2> /dev/null; echo;`;
         });
       }
       if (_windows) {
+        result.macs = await getUniqueMacAdresses(options);
         let sysdir = '%windir%\\System32';
         if (process.arch === 'ia32' && Object.prototype.hasOwnProperty.call(process.env, 'PROCESSOR_ARCHITEW6432')) {
           sysdir = '%windir%\\sysnative\\cmd.exe /c %windir%\\System32';
         }
-        util.powerShell('Get-CimInstance Win32_ComputerSystemProduct | select UUID | fl').then((stdout) => {
+        util.powerShell('Get-CimInstance Win32_ComputerSystemProduct | select UUID | fl', options).then((stdout) => {
           let lines = stdout.split('\r\n');
           result.hardware = util.getValue(lines, 'uuid', ':').toLowerCase();
-          exec(`${sysdir}\\reg query "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography" /v MachineGuid`, util.execOptsWin, function (error, stdout) {
+          util.powerShell(`${sysdir}\\reg query "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography" /v MachineGuid`, options).then((stdout) => {
             parts = stdout.toString().split('\n\r')[0].split('REG_SZ');
             result.os = parts.length > 1 ? parts[1].replace(/\r+|\n+|\s+/ig, '').toLowerCase() : '';
             if (callback) {

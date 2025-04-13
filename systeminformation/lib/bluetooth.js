@@ -21,14 +21,20 @@ const bluetoothVendors = require('./bluetoothVendors');
 const fs = require('fs');
 
 let _platform = process.platform;
+let _linux, _darwin, _windows, _freebsd, _openbsd, _netbsd, _sunos;
 
-const _linux = (_platform === 'linux' || _platform === 'android');
-const _darwin = (_platform === 'darwin');
-const _windows = (_platform === 'win32');
-const _freebsd = (_platform === 'freebsd');
-const _openbsd = (_platform === 'openbsd');
-const _netbsd = (_platform === 'netbsd');
-const _sunos = (_platform === 'sunos');
+function setPlatform(platform) {
+  _platform = platform || process.platform;
+  _linux = (_platform === 'linux' || _platform === 'android');
+  _darwin = (_platform === 'darwin');
+  _windows = (_platform === 'win32');
+  _freebsd = (_platform === 'freebsd');
+  _openbsd = (_platform === 'openbsd');
+  _netbsd = (_platform === 'netbsd');
+  _sunos = (_platform === 'sunos');
+}
+
+setPlatform(_platform);
 
 function parseBluetoothType(str) {
   let result = '';
@@ -115,7 +121,8 @@ function parseWindowsBluetooth(lines) {
   return result;
 }
 
-function bluetoothDevices(callback) {
+function bluetoothDevices(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
@@ -212,7 +219,7 @@ function bluetoothDevices(callback) {
         });
       }
       if (_windows) {
-        util.powerShell('Get-CimInstance Win32_PNPEntity | select PNPClass, Name, Manufacturer | fl').then((stdout, error) => {
+        util.powerShell('Get-CimInstance Win32_PNPEntity | select PNPClass, Name, Manufacturer | fl', options).then((stdout, error) => {
           if (!error) {
             const parts = stdout.toString().split(/\n\s*\n/);
             parts.forEach((part) => {

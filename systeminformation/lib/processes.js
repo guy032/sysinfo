@@ -13,7 +13,7 @@
 // 10. Processes
 // ----------------------------------------------------------------------------------
 
-const os = require('os');
+// const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const exec = require('child_process').exec;
@@ -22,14 +22,20 @@ const execSync = require('child_process').execSync;
 const util = require('./util');
 
 let _platform = process.platform;
+let _linux, _darwin, _windows, _freebsd, _openbsd, _netbsd, _sunos;
 
-const _linux = (_platform === 'linux' || _platform === 'android');
-const _darwin = (_platform === 'darwin');
-const _windows = (_platform === 'win32');
-const _freebsd = (_platform === 'freebsd');
-const _openbsd = (_platform === 'openbsd');
-const _netbsd = (_platform === 'netbsd');
-const _sunos = (_platform === 'sunos');
+function setPlatform(platform) {
+  _platform = platform || process.platform;
+  _linux = (_platform === 'linux' || _platform === 'android');
+  _darwin = (_platform === 'darwin');
+  _windows = (_platform === 'win32');
+  _freebsd = (_platform === 'freebsd');
+  _openbsd = (_platform === 'openbsd');
+  _netbsd = (_platform === 'netbsd');
+  _sunos = (_platform === 'sunos');
+}
+
+setPlatform(_platform);
 
 const _processes_cpu = {
   all: 0,
@@ -109,7 +115,8 @@ function parseElapsedTime(etime) {
 // pass a comma separated string with services to check (mysql, apache, postgresql, ...)
 // this function gives an array back, if the services are running.
 
-function services(srv, callback) {
+function services(options = {}, srv = '*', callback) {
+  if (options.platform) setPlatform(options.platform);
 
   // fallback - if only callback is given
   if (util.isFunction(srv) && !callback) {
@@ -312,8 +319,6 @@ function services(srv, callback) {
                         name: srv,
                         running: ps.length > 0,
                         startmode: '',
-                        cpu: 0,
-                        mem: 0
                       });
                     });
                     if (callback) { callback(result); }
@@ -324,8 +329,6 @@ function services(srv, callback) {
                         name: srv,
                         running: false,
                         startmode: '',
-                        cpu: 0,
-                        mem: 0
                       });
                     });
                     if (callback) { callback(result); }
@@ -341,73 +344,102 @@ function services(srv, callback) {
         }
         if (_windows) {
           try {
-            let wincommand = 'Get-CimInstance Win32_Service';
-            if (srvs[0] !== '*') {
-              wincommand += ' -Filter "';
-              srvs.forEach((srv) => {
-                wincommand += `Name='${srv}' or `;
-              });
-              wincommand = `${wincommand.slice(0, -4)}"`;
-            }
-            wincommand += ' | select Name,Caption,Started,StartMode,ProcessId | fl';
-            util.powerShell(wincommand).then((stdout, error) => {
-              if (!error) {
-                let serviceSections = stdout.split(/\n\s*\n/);
-                serviceSections.forEach((element) => {
-                  if (element.trim() !== '') {
-                    let lines = element.trim().split('\r\n');
-                    let srvName = util.getValue(lines, 'Name', ':', true).toLowerCase();
-                    let srvCaption = util.getValue(lines, 'Caption', ':', true).toLowerCase();
-                    let started = util.getValue(lines, 'Started', ':', true);
-                    let startMode = util.getValue(lines, 'StartMode', ':', true);
-                    let pid = util.getValue(lines, 'ProcessId', ':', true);
-                    if (srvString === '*' || srvs.indexOf(srvName) >= 0 || srvs.indexOf(srvCaption) >= 0) {
-                      result.push({
-                        name: srvName,
-                        running: (started.toLowerCase() === 'true'),
-                        startmode: startMode,
-                        pids: [pid],
-                        cpu: 0,
-                        mem: 0
-                      });
-                      dataSrv.push(srvName);
-                      dataSrv.push(srvCaption);
-                    }
-                  }
-
+            const batchSize = 250;
+            let allServices = [];
+            
+            const fetchServicesBatch = (skip) => {
+              let wincommand = 'Get-CimInstance Win32_Service';
+              if (srvs[0] !== '*') {
+                wincommand += ' -Filter "';
+                srvs.forEach((srv) => {
+                  wincommand += `Name='${srv}' or `;
                 });
-
-                if (srvString !== '*') {
-                  let srvsMissing = srvs.filter(function (e) {
-                    return dataSrv.indexOf(e) === -1;
-                  });
-                  srvsMissing.forEach(function (srvName) {
-                    result.push({
-                      name: srvName,
-                      running: false,
-                      startmode: '',
-                      pids: [],
-                      cpu: 0,
-                      mem: 0
-                    });
-                  });
+                wincommand = `${wincommand.slice(0, -4)}"`;
+              }
+              wincommand += ` | Select-Object -Skip ${skip} -First ${batchSize} | select Name,Caption,Started,StartMode,ProcessId,PathName | ConvertTo-Json -Compress`;
+              
+              return util.powerShell(wincommand, options).then((stdout) => {
+                if (stdout) {
+                  try {
+                    const batchServices = JSON.parse(stdout);
+                    // Handle single service or array
+                    const serviceArray = Array.isArray(batchServices) ? batchServices : (batchServices ? [batchServices] : []);
+                    
+                    if (serviceArray.length > 0) {
+                      allServices = allServices.concat(serviceArray);
+                      
+                      // If we got a full batch, there might be more to fetch
+                      if (serviceArray.length === batchSize) {
+                        return fetchServicesBatch(skip + batchSize);
+                      }
+                    }
+                    
+                    // We've retrieved all services, process them
+                    return processWindowsServices(allServices);
+                  } catch (e) {
+                    // Error parsing JSON
+                    if (callback) { callback(result); }
+                    return resolve(result);
+                  }
+                } else {
+                  // No output from PowerShell
+                  if (callback) { callback(result); }
+                  return resolve(result);
                 }
+              }).catch(e => {
                 if (callback) { callback(result); }
                 resolve(result);
-              } else {
-                srvs.forEach(function (srvName) {
+                return result;
+              });
+            };
+            
+            // Function to process Windows services once all batches are retrieved
+            const processWindowsServices = (servicesList) => {
+              servicesList.forEach((service) => {
+                if (service && service.Name) {
+                  let srvName = service.Name.toLowerCase();
+                  let srvCaption = service.Caption ? service.Caption.toLowerCase() : '';
+                  let started = service.Started ? service.Started.toString() : 'false';
+                  let startMode = service.StartMode || '';
+                  let pid = service.ProcessId || 0;
+                  let path = service.PathName || '';
+                  
+                  if (srvString === '*' || srvs.indexOf(srvName) >= 0 || srvs.indexOf(srvCaption) >= 0) {
+                    result.push({
+                      name: srvName,
+                      running: (started.toLowerCase() === 'true'),
+                      startmode: startMode,
+                      pids: [pid],
+                      path: path
+                    });
+                    dataSrv.push(srvName);
+                    dataSrv.push(srvCaption);
+                  }
+                }
+              });
+              
+              if (srvString !== '*') {
+                let srvsMissing = srvs.filter(function (e) {
+                  return dataSrv.indexOf(e) === -1;
+                });
+                srvsMissing.forEach(function (srvName) {
                   result.push({
                     name: srvName,
                     running: false,
                     startmode: '',
-                    cpu: 0,
-                    mem: 0
+                    pids: [],
+                    path: ''
                   });
                 });
-                if (callback) { callback(result); }
-                resolve(result);
               }
-            });
+              
+              if (callback) { callback(result); }
+              resolve(result);
+              return result;
+            };
+            
+            // Start fetching batches from index 0
+            fetchServicesBatch(0);
           } catch (e) {
             if (callback) { callback(result); }
             resolve(result);
@@ -517,7 +549,8 @@ function calcProcStatWin(procStat, all, _cpu_old) {
 // --------------------------
 // running processes
 
-function processes(callback) {
+function processes(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   let parsedhead = [];
 
@@ -700,7 +733,7 @@ function processes(callback) {
         line = line.trim().replace(/ +/g, ' ').replace(/,+/g, '.');
         const parts = line.split(' ');
         const command = parts.slice(9).join(' ');
-        const pmem = parseFloat((1.0 * parseInt(parts[3]) * 1024 / os.totalmem()).toFixed(1));
+        // const pmem = parseFloat((1.0 * parseInt(parts[3]) * 1024 / os.totalmem()).toFixed(1));
         const started = parseElapsed(parts[5]);
 
         result.push({
@@ -727,7 +760,7 @@ function processes(callback) {
   }
 
   return new Promise((resolve) => {
-    process.nextTick(() => {
+    process.nextTick(async () => {
       let result = {
         all: 0,
         running: 0,
@@ -843,111 +876,150 @@ function processes(callback) {
           });
         } else if (_windows) {
           try {
-            util.powerShell('Get-CimInstance Win32_Process | select-Object ProcessId,ParentProcessId,ExecutionState,Caption,CommandLine,ExecutablePath,UserModeTime,KernelModeTime,WorkingSetSize,Priority,PageFileUsage, @{n="CreationDate";e={$_.CreationDate.ToString("yyyy-MM-dd HH:mm:ss")}} | fl').then((stdout, error) => {
-              if (!error) {
-                let processSections = stdout.split(/\n\s*\n/);
-                let procs = [];
-                let procStats = [];
-                let list_new = {};
-                let allcpuu = 0;
-                let allcpus = 0;
-                processSections.forEach((element) => {
-                  if (element.trim() !== '') {
-                    let lines = element.trim().split('\r\n');
-                    let pid = parseInt(util.getValue(lines, 'ProcessId', ':', true), 10);
-                    let parentPid = parseInt(util.getValue(lines, 'ParentProcessId', ':', true), 10);
-                    let statusValue = util.getValue(lines, 'ExecutionState', ':');
-                    let name = util.getValue(lines, 'Caption', ':', true);
-                    let commandLine = util.getValue(lines, 'CommandLine', ':', true);
-                    // get additional command line data
-                    let additionalCommand = false;
-                    lines.forEach((line) => {
-                      if (additionalCommand && line.toLowerCase().startsWith(' ')) {
-                        commandLine += ' ' + line.trim();
-                      } else {
-                        additionalCommand = false;
+            const totalMemResult = await util.powerShell("(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory", options);
+            const totalMem = parseInt(totalMemResult.trim(), 10);
+
+            const batchSize = 50;
+            let allProcesses = [];
+            
+            const fetchProcessBatch = (skip) => {
+              const powershellScript = `Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,ExecutionState,Caption,CommandLine,ExecutablePath,UserModeTime,KernelModeTime,WorkingSetSize,Priority,PageFileUsage,@{Name='CreationDate';Expression={$_.CreationDate.ToString('yyyy-MM-dd HH:mm:ss')}} | Select-Object -Skip ${skip} -First ${batchSize} | ConvertTo-Json -Compress`;
+              
+              return util.powerShell(powershellScript, options).then((stdout) => {
+                if (stdout) {
+                  try {
+                    const batchProcesses = JSON.parse(stdout);
+                    // Handle single process or array
+                    const processArray = Array.isArray(batchProcesses) ? batchProcesses : (batchProcesses ? [batchProcesses] : []);
+                    
+                    if (processArray.length > 0) {
+                      allProcesses = allProcesses.concat(processArray);
+                      
+                      // If we got a full batch, there might be more to fetch
+                      if (processArray.length === batchSize) {
+                        return fetchProcessBatch(skip + batchSize);
                       }
-                      if (line.toLowerCase().startsWith('commandline')) {
-                        additionalCommand = true;
-                      }
-                    });
-                    let commandPath = util.getValue(lines, 'ExecutablePath', ':', true);
-                    let utime = parseInt(util.getValue(lines, 'UserModeTime', ':', true), 10);
-                    let stime = parseInt(util.getValue(lines, 'KernelModeTime', ':', true), 10);
-                    let memw = parseInt(util.getValue(lines, 'WorkingSetSize', ':', true), 10);
-                    allcpuu = allcpuu + utime;
-                    allcpus = allcpus + stime;
-                    result.all++;
-                    if (!statusValue) { result.unknown++; }
-                    if (statusValue === '3') { result.running++; }
-                    if (statusValue === '4' || statusValue === '5') { result.blocked++; }
-
-                    procStats.push({
-                      pid: pid,
-                      utime: utime,
-                      stime: stime,
-                      cpu: 0,
-                      cpuu: 0,
-                      cpus: 0,
-                    });
-                    procs.push({
-                      pid: pid,
-                      parentPid: parentPid,
-                      name: name,
-                      cpu: 0,
-                      cpuu: 0,
-                      cpus: 0,
-                      mem: memw / os.totalmem() * 100,
-                      priority: parseInt(util.getValue(lines, 'Priority', ':', true), 10),
-                      memVsz: parseInt(util.getValue(lines, 'PageFileUsage', ':', true), 10),
-                      memRss: Math.floor(parseInt(util.getValue(lines, 'WorkingSetSize', ':', true), 10) / 1024),
-                      nice: 0,
-                      started: util.getValue(lines, 'CreationDate', ':', true),
-                      state: (!statusValue ? _winStatusValues[0] : _winStatusValues[statusValue]),
-                      tty: '',
-                      user: '',
-                      command: commandLine || name,
-                      path: commandPath,
-                      params: ''
-                    });
+                    }
+                    
+                    // We've retrieved all processes, process them
+                    return processWindowsProcesses(allProcesses);
+                  } catch (e) {
+                    // Error parsing JSON
+                    if (callback) { callback(result); }
+                    return resolve(result);
                   }
-                });
+                } else {
+                  // No output from PowerShell
+                  if (callback) { callback(result); }
+                  return resolve(result);
+                }
+              }).catch(e => {
+                if (callback) { callback(result); }
+                resolve(result);
+                return result;
+              });
+            };
+            
+            // Function to process the Windows processes once all batches are retrieved
+            const processWindowsProcesses = (processList) => {
+              let procs = [];
+              let procStats = [];
+              let list_new = {};
+              let allcpuu = 0;
+              let allcpus = 0;
+              
+              processList.forEach((proc) => {
+                if (proc && proc.ProcessId) {
+                  let pid = parseInt(proc.ProcessId, 10);
+                  let parentPid = parseInt(proc.ParentProcessId, 10);
+                  let statusValue = proc.ExecutionState;
+                  let name = proc.Caption || '';
+                  let commandLine = proc.CommandLine || '';
+                  let commandPath = proc.ExecutablePath || '';
+                  let utime = parseInt(proc.UserModeTime, 10);
+                  let stime = parseInt(proc.KernelModeTime, 10);
+                  let memw = parseInt(proc.WorkingSetSize, 10);
+                  
+                  allcpuu = allcpuu + utime;
+                  allcpus = allcpus + stime;
+                  result.all++;
+                  
+                  if (!statusValue) { result.unknown++; }
+                  if (statusValue === 3) { result.running++; }
+                  if (statusValue === 4 || statusValue === 5) { result.blocked++; }
 
-                result.sleeping = result.all - result.running - result.blocked - result.unknown;
-                result.list = procs;
-                procStats.forEach((element) => {
-                  let resultProcess = calcProcStatWin(element, allcpuu + allcpus, _processes_cpu);
+                  procStats.push({
+                    pid: pid,
+                    utime: utime,
+                    stime: stime,
+                    cpu: 0,
+                    cpuu: 0,
+                    cpus: 0,
+                  });
+                  
+                  procs.push({
+                    pid: pid,
+                    parentPid: parentPid,
+                    name: name,
+                    cpu: 0,
+                    cpuu: 0,
+                    cpus: 0,
+                    mem: memw / totalMem * 100,
+                    priority: parseInt(proc.Priority, 10),
+                    memVsz: parseInt(proc.PageFileUsage, 10),
+                    memRss: Math.floor(parseInt(proc.WorkingSetSize, 10) / 1024),
+                    nice: 0,
+                    started: proc.CreationDate,
+                    state: (!statusValue ? _winStatusValues[0] : _winStatusValues[statusValue]),
+                    tty: '',
+                    user: '',
+                    command: commandLine || name,
+                    path: commandPath,
+                    params: ''
+                  });
+                }
+              });
 
-                  // store pcpu in outer array
-                  let listPos = result.list.map(function (e) { return e.pid; }).indexOf(resultProcess.pid);
-                  if (listPos >= 0) {
-                    result.list[listPos].cpu = resultProcess.cpuu + resultProcess.cpus;
-                    result.list[listPos].cpuu = resultProcess.cpuu;
-                    result.list[listPos].cpus = resultProcess.cpus;
-                  }
+              result.sleeping = result.all - result.running - result.blocked - result.unknown;
+              result.list = procs;
+              procStats.forEach((element) => {
+                let resultProcess = calcProcStatWin(element, allcpuu + allcpus, _processes_cpu);
 
-                  // save new values
-                  list_new[resultProcess.pid] = {
-                    cpuu: resultProcess.cpuu,
-                    cpus: resultProcess.cpus,
-                    utime: resultProcess.utime,
-                    stime: resultProcess.stime
-                  };
-                });
+                // store pcpu in outer array
+                let listPos = result.list.map(function (e) { return e.pid; }).indexOf(resultProcess.pid);
+                if (listPos >= 0) {
+                  result.list[listPos].cpu += resultProcess.cpuu + resultProcess.cpus;
+                  result.list[listPos].cpuu = resultProcess.cpuu;
+                  result.list[listPos].cpus = resultProcess.cpus;
+                }
 
-                // store old values
-                _processes_cpu.all = allcpuu + allcpus;
-                _processes_cpu.all_utime = allcpuu;
-                _processes_cpu.all_stime = allcpus;
-                _processes_cpu.list = Object.assign({}, list_new);
-                _processes_cpu.ms = Date.now() - _processes_cpu.ms;
-                _processes_cpu.result = Object.assign({}, result);
-              }
+                // save new values
+                list_new[resultProcess.pid] = {
+                  cpuu: resultProcess.cpuu,
+                  cpus: resultProcess.cpus,
+                  utime: resultProcess.utime,
+                  stime: resultProcess.stime
+                };
+              });
+
+              // store old values
+              _processes_cpu.all = allcpuu + allcpus;
+              _processes_cpu.all_utime = allcpuu;
+              _processes_cpu.all_stime = allcpus;
+              _processes_cpu.list = Object.assign({}, list_new);
+              _processes_cpu.ms = Date.now() - _processes_cpu.ms;
+              _processes_cpu.result = Object.assign({}, result);
+              
               if (callback) {
                 callback(result);
               }
               resolve(result);
-            });
+              return result;
+            };
+            
+            // Start fetching batches from index 0
+            fetchProcessBatch(0);
+            
           } catch (e) {
             if (callback) { callback(result); }
             resolve(result);
@@ -1034,118 +1106,154 @@ function processLoad(proc, callback) {
       if (procSanitized && processes.length && processes[0] !== '------') {
         if (_windows) {
           try {
-            util.powerShell('Get-CimInstance Win32_Process | select ProcessId,Caption,UserModeTime,KernelModeTime,WorkingSetSize | fl').then((stdout, error) => {
-              if (!error) {
-                let processSections = stdout.split(/\n\s*\n/);
-                let procStats = [];
-                let list_new = {};
-                let allcpuu = 0;
-                let allcpus = 0;
-
-                // go through all processes
-                processSections.forEach((element) => {
-                  if (element.trim() !== '') {
-                    let lines = element.trim().split('\r\n');
-                    let pid = parseInt(util.getValue(lines, 'ProcessId', ':', true), 10);
-                    let name = util.getValue(lines, 'Caption', ':', true);
-                    let utime = parseInt(util.getValue(lines, 'UserModeTime', ':', true), 10);
-                    let stime = parseInt(util.getValue(lines, 'KernelModeTime', ':', true), 10);
-                    let mem = parseInt(util.getValue(lines, 'WorkingSetSize', ':', true), 10);
-                    allcpuu = allcpuu + utime;
-                    allcpus = allcpus + stime;
-
-                    procStats.push({
-                      pid: pid,
-                      name,
-                      utime: utime,
-                      stime: stime,
-                      cpu: 0,
-                      cpuu: 0,
-                      cpus: 0,
-                      mem
-                    });
-                    let pname = '';
-                    let inList = false;
-                    processes.forEach(function (proc) {
-                      if (name.toLowerCase().indexOf(proc.toLowerCase()) >= 0 && !inList) {
-                        inList = true;
-                        pname = proc;
-                      }
-                    });
-
-                    if (processesString === '*' || inList) {
-                      let processFound = false;
-                      result.forEach(function (item) {
-                        if (item.proc.toLowerCase() === pname.toLowerCase()) {
-                          item.pids.push(pid);
-                          item.mem += mem / os.totalmem() * 100;
-                          processFound = true;
-                        }
-                      });
-                      if (!processFound) {
-                        result.push({
-                          proc: pname,
-                          pid: pid,
-                          pids: [pid],
-                          cpu: 0,
-                          mem: mem / os.totalmem() * 100
-                        });
-                      }
+            const batchSize = 250;
+            let allProcesses = [];
+            
+            const fetchProcessBatch = (skip) => {
+              const powershellScript = `Get-CimInstance Win32_Process | Select-Object ProcessId,Caption,UserModeTime,KernelModeTime,WorkingSetSize | Select-Object -Skip ${skip} -First ${batchSize} | ConvertTo-Json -Compress`;
+              
+              return util.powerShell(powershellScript).then((stdout) => {
+                try {
+                  const batchProcesses = JSON.parse(stdout);
+                  // Handle single process or array
+                  const processArray = Array.isArray(batchProcesses) ? batchProcesses : (batchProcesses ? [batchProcesses] : []);
+                  
+                  if (processArray.length > 0) {
+                    allProcesses = allProcesses.concat(processArray);
+                    
+                    // If we got a full batch, there might be more to fetch
+                    if (processArray.length === batchSize) {
+                      return fetchProcessBatch(skip + batchSize);
                     }
                   }
-                });
-
-                // add missing processes
-                if (processesString !== '*') {
-                  let processesMissing = processes.filter(function (name) {
-                    return procStats.filter(function (item) { return item.name.toLowerCase().indexOf(name) >= 0; }).length === 0;
-
-                  });
-                  processesMissing.forEach(function (procName) {
-                    result.push({
-                      proc: procName,
-                      pid: null,
-                      pids: [],
-                      cpu: 0,
-                      mem: 0
-                    });
-                  });
+                  
+                  // Process all processes
+                  return processWindowsProcesses(allProcesses);
+                } catch (e) {
+                  if (callback) { callback(result); }
+                  resolve(result);
+                  return result;
                 }
-
-                // calculate proc stats for each proc
-                procStats.forEach((element) => {
-                  let resultProcess = calcProcStatWin(element, allcpuu + allcpus, _process_cpu);
-
-                  let listPos = -1;
-                  for (let j = 0; j < result.length; j++) {
-                    if (result[j].pid === resultProcess.pid || result[j].pids.indexOf(resultProcess.pid) >= 0) { listPos = j; }
-                  }
-                  if (listPos >= 0) {
-                    result[listPos].cpu += resultProcess.cpuu + resultProcess.cpus;
-                  }
-
-                  // save new values
-                  list_new[resultProcess.pid] = {
-                    cpuu: resultProcess.cpuu,
-                    cpus: resultProcess.cpus,
-                    utime: resultProcess.utime,
-                    stime: resultProcess.stime
-                  };
-                });
-
-                // store old values
-                _process_cpu.all = allcpuu + allcpus;
-                _process_cpu.all_utime = allcpuu;
-                _process_cpu.all_stime = allcpus;
-                _process_cpu.list = Object.assign({}, list_new);
-                _process_cpu.ms = Date.now() - _process_cpu.ms;
-                _process_cpu.result = JSON.parse(JSON.stringify(result));
-                if (callback) {
-                  callback(result);
-                }
+              }).catch(() => {
+                if (callback) { callback(result); }
                 resolve(result);
+                return result;
+              });
+            };
+            
+            // Process Windows processes
+            const processWindowsProcesses = (processList) => {
+              let procStats = [];
+              let list_new = {};
+              let allcpuu = 0;
+              let allcpus = 0;
+
+              // go through all processes
+              processList.forEach((proc) => {
+                if (proc && proc.ProcessId) {
+                  let pid = parseInt(proc.ProcessId, 10);
+                  let name = proc.Caption || '';
+                  let utime = parseInt(proc.UserModeTime, 10);
+                  let stime = parseInt(proc.KernelModeTime, 10);
+                  let mem = parseInt(proc.WorkingSetSize, 10);
+                  allcpuu = allcpuu + utime;
+                  allcpus = allcpus + stime;
+
+                  procStats.push({
+                    pid: pid,
+                    name,
+                    utime: utime,
+                    stime: stime,
+                    cpu: 0,
+                    cpuu: 0,
+                    cpus: 0,
+                    mem
+                  });
+                  let pname = '';
+                  let inList = false;
+                  processes.forEach(function (proc) {
+                    if (name.toLowerCase().indexOf(proc.toLowerCase()) >= 0 && !inList) {
+                      inList = true;
+                      pname = proc;
+                    }
+                  });
+
+                  if (processesString === '*' || inList) {
+                    let processFound = false;
+                    result.forEach(function (item) {
+                      if (item.proc.toLowerCase() === pname.toLowerCase()) {
+                        item.pids.push(pid);
+                        // item.mem += mem / os.totalmem() * 100;
+                        processFound = true;
+                      }
+                    });
+                    if (!processFound) {
+                      result.push({
+                        proc: pname,
+                        pid: pid,
+                        pids: [pid],
+                        cpu: 0,
+                        // mem: mem / os.totalmem() * 100
+                      });
+                    }
+                  }
+                }
+              });
+
+              // add missing processes
+              if (processesString !== '*') {
+                let processesMissing = processes.filter(function (name) {
+                  return procStats.filter(function (item) { return item.name.toLowerCase().indexOf(name) >= 0; }).length === 0;
+                });
+                processesMissing.forEach(function (procName) {
+                  result.push({
+                    proc: procName,
+                    pid: null,
+                    pids: [],
+                    cpu: 0,
+                    mem: 0
+                  });
+                });
               }
-            });
+
+              // calculate proc stats for each proc
+              procStats.forEach((element) => {
+                let resultProcess = calcProcStatWin(element, allcpuu + allcpus, _process_cpu);
+
+                let listPos = -1;
+                for (let j = 0; j < result.length; j++) {
+                  if (result[j].pid === resultProcess.pid || result[j].pids.indexOf(resultProcess.pid) >= 0) { listPos = j; }
+                }
+                if (listPos >= 0) {
+                  result[listPos].cpu += resultProcess.cpuu + resultProcess.cpus;
+                }
+
+                // save new values
+                list_new[resultProcess.pid] = {
+                  cpuu: resultProcess.cpuu,
+                  cpus: resultProcess.cpus,
+                  utime: resultProcess.utime,
+                  stime: resultProcess.stime
+                };
+              });
+
+              // store old values
+              _process_cpu.all = allcpuu + allcpus;
+              _process_cpu.all_utime = allcpuu;
+              _process_cpu.all_stime = allcpus;
+              _process_cpu.list = Object.assign({}, list_new);
+              _process_cpu.ms = Date.now() - _process_cpu.ms;
+              _process_cpu.result = JSON.parse(JSON.stringify(result));
+              
+              if (callback) {
+                callback(result);
+              }
+              resolve(result);
+              return result;
+            };
+            
+            // Start fetching batches from index 0
+            fetchProcessBatch(0);
           } catch (e) {
             if (callback) { callback(result); }
             resolve(result);

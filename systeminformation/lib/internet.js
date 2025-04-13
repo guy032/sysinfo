@@ -16,19 +16,26 @@
 const util = require('./util');
 
 let _platform = process.platform;
+let _linux, _darwin, _windows, _freebsd, _openbsd, _netbsd, _sunos;
 
-const _linux = (_platform === 'linux' || _platform === 'android');
-const _darwin = (_platform === 'darwin');
-const _windows = (_platform === 'win32');
-const _freebsd = (_platform === 'freebsd');
-const _openbsd = (_platform === 'openbsd');
-const _netbsd = (_platform === 'netbsd');
-const _sunos = (_platform === 'sunos');
+function setPlatform(platform) {
+  _platform = platform || process.platform;
+  _linux = (_platform === 'linux' || _platform === 'android');
+  _darwin = (_platform === 'darwin');
+  _windows = (_platform === 'win32');
+  _freebsd = (_platform === 'freebsd');
+  _openbsd = (_platform === 'openbsd');
+  _netbsd = (_platform === 'netbsd');
+  _sunos = (_platform === 'sunos');
+}
+
+setPlatform(_platform);
 
 // --------------------------
 // check if external site is available
 
-function inetChecksite(url, callback) {
+function inetChecksite(url, options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
@@ -97,7 +104,8 @@ exports.inetChecksite = inetChecksite;
 // --------------------------
 // check inet latency
 
-function inetLatency(host, callback) {
+function inetLatency(options = {}, host, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   // fallback - if only callback is given
   if (util.isFunction(host) && !callback) {
@@ -107,8 +115,8 @@ function inetLatency(host, callback) {
 
   host = host || '8.8.8.8';
 
-  return new Promise((resolve) => {
-    process.nextTick(() => {
+  return new Promise(async (resolve) => {
+    process.nextTick(async () => {
       if (typeof host !== 'string') {
         if (callback) { callback(null); }
         return resolve(null);
@@ -191,7 +199,7 @@ function inetLatency(host, callback) {
         let result = null;
         try {
           const params = [hostSanitized, '-n', '1'];
-          util.execSafe('ping', params, util.execOptsWin).then((stdout) => {
+          await util.powerShell(`ping ${params.join(' ')}`, options).then((stdout) => {
             if (stdout) {
               let lines = stdout.split('\r\n');
               lines.shift();

@@ -17,14 +17,20 @@ const exec = require('child_process').exec;
 const util = require('./util');
 
 let _platform = process.platform;
+let _linux, _darwin, _windows, _freebsd, _openbsd, _netbsd, _sunos;
 
-const _linux = (_platform === 'linux' || _platform === 'android');
-const _darwin = (_platform === 'darwin');
-const _windows = (_platform === 'win32');
-const _freebsd = (_platform === 'freebsd');
-const _openbsd = (_platform === 'openbsd');
-const _netbsd = (_platform === 'netbsd');
-const _sunos = (_platform === 'sunos');
+function setPlatform(platform) {
+  _platform = platform || process.platform;
+  _linux = (_platform === 'linux' || _platform === 'android');
+  _darwin = (_platform === 'darwin');
+  _windows = (_platform === 'win32');
+  _freebsd = (_platform === 'freebsd');
+  _openbsd = (_platform === 'openbsd');
+  _netbsd = (_platform === 'netbsd');
+  _sunos = (_platform === 'sunos');
+}
+
+setPlatform(_platform);
 
 const winPrinterStatus = {
   1: 'Other',
@@ -100,18 +106,24 @@ function parseWindowsPrinters(lines, id) {
 
   result.id = id;
   result.name = util.getValue(lines, 'name', ':');
-  result.model = util.getValue(lines, 'DriverName', ':');
-  result.uri = null;
-  result.uuid = null;
+  result.model = util.getValue(lines, 'Model', ':') || util.getValue(lines, 'DriverName', ':');
+  result.uri = util.getValue(lines, 'PortName', ':');
+  result.uuid = util.getValue(lines, 'UUID', ':') || null;
   result.status = winPrinterStatus[status] ? winPrinterStatus[status] : null;
   result.local = util.getValue(lines, 'Local', ':').toUpperCase() === 'TRUE';
   result.default = util.getValue(lines, 'Default', ':').toUpperCase() === 'TRUE';
   result.shared = util.getValue(lines, 'Shared', ':').toUpperCase() === 'TRUE';
+  result.location = util.getValue(lines, 'Location', ':');
+  result.ipAddress = util.getValue(lines, 'IPAddress', ':');
+  result.driverName = util.getValue(lines, 'DriverName', ':');
+  result.portHostAddress = util.getValue(lines, 'HostAddress', ':');
+  result.portDescription = util.getValue(lines, 'Description', ':');
 
   return result;
 }
 
-function printer(callback) {
+function printer(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
@@ -184,20 +196,116 @@ function printer(callback) {
         });
       }
       if (_windows) {
-        util.powerShell('Get-CimInstance Win32_Printer | select PrinterStatus,Name,DriverName,Local,Default,Shared | fl').then((stdout, error) => {
+        // Enhanced PowerShell command to get more printer details - single line version
+        const psScript = `Get-CimInstance Win32_Printer | ForEach-Object { $p = $_; $portName = $p.PortName; $ip = $null; $loc = $p.Location; $model = $p.Caption; if ($loc -match 'http://([0-9.]+)') { $ip = $matches[1]; }; if (-not $ip -and ($portName -match '^(IP|TCP)' -or $portName -match '^WSD-')) { $pp = Get-CimInstance Win32_TCPIPPrinterPort -Filter "Name='$portName'"; if ($pp -and $pp.HostAddress) { $ip = $pp.HostAddress; } }; $driverName = $p.DriverName; $drv = $null; if ($driverName) { $drv = Get-CimInstance Win32_PrinterDriver | Where-Object { $_.Name -match [regex]::Escape($driverName) } | Select-Object -First 1 }; [PSCustomObject]@{ PrinterStatus=$p.PrinterStatus; Name=$p.Name; DriverName=$p.DriverName; Model=$model; Local=$p.Local; Default=$p.Default; Shared=$p.Shared; PortName=$portName; Location=$loc; IPAddress=$ip } } | ConvertTo-Json -Depth 3 -Compress`;
+        
+        // Get detailed port information
+        const portScript = `Get-CimInstance Win32_TCPIPPrinterPort | ForEach-Object { [PSCustomObject]@{ Name=$_.Name; Protocol=$_.Protocol; HostAddress=$_.HostAddress; PortMonitor=$_.PortMonitor; Description=$_.Description; SNMPEnabled=$_.SNMPEnabled; LPREnabled=$_.LPREnabled } } | ConvertTo-Json -Depth 1 -Compress`;
+        
+        // First get printer information
+        util.powerShell(psScript, options).then((stdout, error) => {
           if (!error) {
-            const parts = stdout.toString().split(/\n\s*\n/);
-            for (let i = 0; i < parts.length; i++) {
-              const printer = parseWindowsPrinters(parts[i].split('\n'), i);
-              if (printer.name || printer.model) {
-                result.push(printer);
+            try {
+              let printers = JSON.parse(stdout.toString());
+              // Ensure printers is an array
+              if (!Array.isArray(printers)) {
+                printers = printers ? [printers] : [];
               }
+              
+              // Now get port information
+              util.powerShell(portScript, options).then((portStdout, portError) => {
+                // Create a map of port details by port name
+                const portMap = {};
+                if (!portError) {
+                  try {
+                    let ports = JSON.parse(portStdout.toString());
+                    if (!Array.isArray(ports)) {
+                      ports = ports ? [ports] : [];
+                    }
+                    
+                    ports.forEach(port => {
+                      if (port.Name) {
+                        portMap[port.Name] = port;
+                      }
+                    });
+                  } catch (e) {
+                    console.log('Error parsing port data:', e);
+                  }
+                }
+                
+                // Process printer information combined with port details
+                printers.forEach((printerObj, i) => {
+                  // Add port details to printer object if available
+                  if (printerObj.PortName && portMap[printerObj.PortName]) {
+                    const portDetails = portMap[printerObj.PortName];
+                    printerObj = { ...printerObj, ...portDetails };
+                    
+                    // If IP address wasn't found earlier, get it from port details
+                    if (!printerObj.IPAddress && portDetails.HostAddress) {
+                      printerObj.IPAddress = portDetails.HostAddress;
+                    }
+                  }
+                  
+                  // Convert printer object to lines format for parser
+                  const printerLines = [];
+                  for (const key in printerObj) {
+                    const value = printerObj[key] !== null ? printerObj[key].toString() : '';
+                    printerLines.push(`${key} : ${value}`);
+                  }
+                  
+                  const printer = parseWindowsPrinters(printerLines, i);
+                  if (printer.name || printer.model) {
+                    result.push(printer);
+                  }
+                });
+                
+                if (callback) {
+                  callback(result);
+                }
+                resolve(result);
+                
+              }).catch(e => {
+                console.log('Error fetching port information:', e);
+                
+                // Continue with just printer information if port info fails
+                processPrinters(printers);
+              });
+              
+              // Helper function to process printers without port information
+              function processPrinters(printers) {
+                printers.forEach((printerObj, i) => {
+                  const printerLines = [];
+                  for (const key in printerObj) {
+                    const value = printerObj[key] !== null ? printerObj[key].toString() : '';
+                    printerLines.push(`${key} : ${value}`);
+                  }
+                  
+                  const printer = parseWindowsPrinters(printerLines, i);
+                  if (printer.name || printer.model) {
+                    result.push(printer);
+                  }
+                });
+                
+                if (callback) {
+                  callback(result);
+                }
+                resolve(result);
+              }
+              
+            } catch (e) {
+              console.log('Error parsing printer data:', e);
+              console.log(stdout);
+              if (callback) {
+                callback(result);
+              }
+              resolve(result);
             }
+          } else {
+            if (callback) {
+              callback(result);
+            }
+            resolve(result);
           }
-          if (callback) {
-            callback(result);
-          }
-          resolve(result);
         });
       }
       if (_sunos) {

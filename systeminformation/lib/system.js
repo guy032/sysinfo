@@ -21,27 +21,34 @@ const execSync = require('child_process').execSync;
 const execPromise = util.promisify(require('child_process').exec);
 
 let _platform = process.platform;
+let _linux, _darwin, _windows, _freebsd, _openbsd, _netbsd, _sunos;
 
-const _linux = (_platform === 'linux' || _platform === 'android');
-const _darwin = (_platform === 'darwin');
-const _windows = (_platform === 'win32');
-const _freebsd = (_platform === 'freebsd');
-const _openbsd = (_platform === 'openbsd');
-const _netbsd = (_platform === 'netbsd');
-const _sunos = (_platform === 'sunos');
+function setPlatform(platform) {
+  _platform = platform || process.platform;
+  _linux = (_platform === 'linux' || _platform === 'android');
+  _darwin = (_platform === 'darwin');
+  _windows = (_platform === 'win32');
+  _freebsd = (_platform === 'freebsd');
+  _openbsd = (_platform === 'openbsd');
+  _netbsd = (_platform === 'netbsd');
+  _sunos = (_platform === 'sunos');
+}
 
-function system(callback) {
+setPlatform(_platform);
+
+function system(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
 
       let result = {
         manufacturer: '',
-        model: 'Computer',
+        model: '',
         version: '',
-        serial: '-',
-        uuid: '-',
-        sku: '-',
+        serial: '',
+        uuid: '',
+        sku: '',
         virtual: false
       };
 
@@ -237,7 +244,7 @@ function system(callback) {
       }
       if (_windows) {
         try {
-          util.powerShell('Get-CimInstance Win32_ComputerSystemProduct | select Name,Vendor,Version,IdentifyingNumber,UUID | fl').then((stdout, error) => {
+          util.powerShell('Get-CimInstance Win32_ComputerSystemProduct | select Name,Vendor,Version,IdentifyingNumber,UUID | fl', options).then((stdout, error) => {
             if (!error) {
               let lines = stdout.split('\r\n');
               result.manufacturer = util.getValue(lines, 'vendor', ':');
@@ -264,13 +271,13 @@ function system(callback) {
                 if (manufacturer.startsWith('qemu')) { result.virtualHost = 'KVM'; }
                 if (manufacturer.startsWith('parallels')) { result.virtualHost = 'Parallels'; }
               }
-              util.powerShell('Get-CimInstance MS_Systeminformation -Namespace "root/wmi" | select systemsku | fl ').then((stdout, error) => {
+              util.powerShell('Get-CimInstance MS_Systeminformation -Namespace "root/wmi" | select systemsku | fl ', options).then((stdout, error) => {
                 if (!error) {
                   let lines = stdout.split('\r\n');
                   result.sku = util.getValue(lines, 'systemsku', ':');
                 }
                 if (!result.virtual) {
-                  util.powerShell('Get-CimInstance Win32_bios | select Version, SerialNumber, SMBIOSBIOSVersion').then((stdout, error) => {
+                  util.powerShell('Get-CimInstance Win32_bios | select Version, SerialNumber, SMBIOSBIOSVersion', options).then((stdout, error) => {
                     if (!error) {
                       let lines = stdout.toString();
                       if (lines.indexOf('VRTUAL') >= 0 || lines.indexOf('A M I ') >= 0 || lines.indexOf('VirtualBox') >= 0 || lines.indexOf('VMWare') >= 0 || lines.indexOf('Xen') >= 0 || lines.indexOf('Parallels') >= 0) {
@@ -329,7 +336,8 @@ function cleanDefaults(s) {
   }
   return '';
 }
-function bios(callback) {
+function bios(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
@@ -411,7 +419,8 @@ function bios(callback) {
       }
       if (_windows) {
         try {
-          util.powerShell('Get-CimInstance Win32_bios | select Description,Version,Manufacturer,@{n="ReleaseDate";e={$_.ReleaseDate.ToString("yyyy-MM-dd")}},BuildNumber,SerialNumber,SMBIOSBIOSVersion | fl').then((stdout, error) => {
+          // Use a simpler PowerShell command without complex calculated properties
+          util.powerShell('Get-CimInstance Win32_bios | select Description,Version,Manufacturer,ReleaseDate,BuildNumber,SerialNumber,SMBIOSBIOSVersion | fl', options).then((stdout, error) => {
             if (!error) {
               let lines = stdout.toString().split('\r\n');
               const description = util.getValue(lines, 'description', ':');
@@ -428,7 +437,32 @@ function bios(callback) {
                 result.vendor = util.getValue(lines, 'manufacturer', ':');
                 result.version = version || util.getValue(lines, 'version', ':');
               }
-              result.releaseDate = util.getValue(lines, 'releasedate', ':');
+              
+              // Store the manufacturer-specific version number if available
+              const rawVersion = util.getValue(lines, 'version', ':');
+              if (rawVersion && rawVersion !== result.version) {
+                result.vendorVersion = rawVersion;
+              }
+              
+              // Parse ReleaseDate from default format
+              const releaseDate = util.getValue(lines, 'releasedate', ':');
+              if (releaseDate) {
+                try {
+                  // Convert from default WMI date format
+                  const dateObj = new Date(releaseDate);
+                  if (!isNaN(dateObj.getTime())) {
+                    // Format as yyyy-MM-dd
+                    const year = dateObj.getFullYear();
+                    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    const day = String(dateObj.getDate()).padStart(2, '0');
+                    result.releaseDate = `${year}-${month}-${day}`;
+                  } else {
+                    result.releaseDate = releaseDate;
+                  }
+                } catch (e) {
+                  result.releaseDate = releaseDate;
+                }
+              }
               result.revision = util.getValue(lines, 'buildnumber', ':');
               result.serial = cleanDefaults(util.getValue(lines, 'serialnumber', ':'));
             }
@@ -447,10 +481,11 @@ function bios(callback) {
 
 exports.bios = bios;
 
-function baseboard(callback) {
+function baseboard(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
-    process.nextTick(() => {
+    process.nextTick(async () => {
 
       let result = {
         manufacturer: '',
@@ -556,10 +591,31 @@ function baseboard(callback) {
       if (_windows) {
         try {
           const workload = [];
-          const win10plus = parseInt(os.release()) >= 10;
+
+          const selectVersion = 'Get-CimInstance Win32_OperatingSystem | select Version | fl';
+          const versionOutput = await util.powerShell(selectVersion, options);
+          
+          // Parse the version string from output format "Version : 10.0.26100"
+          let versionStr = '';
+          if (versionOutput && typeof versionOutput === 'string') {
+            const versionLines = versionOutput.split('\r\n');
+            versionStr = util.getValue(versionLines, 'version', ':');
+          }
+          
+          // Extract the major version number (first part before the dots)
+          let majorVersion = 0;
+          if (versionStr) {
+            const versionParts = versionStr.split('.');
+            if (versionParts.length > 0) {
+              majorVersion = parseInt(versionParts[0], 10);
+            }
+          }
+          
+          const win10plus = majorVersion >= 10;
+
           const maxCapacityAttribute = win10plus ? 'MaxCapacityEx' : 'MaxCapacity';
-          workload.push(util.powerShell('Get-CimInstance Win32_baseboard | select Model,Manufacturer,Product,Version,SerialNumber,PartNumber,SKU | fl'));
-          workload.push(util.powerShell(`Get-CimInstance Win32_physicalmemoryarray | select ${maxCapacityAttribute}, MemoryDevices | fl`));
+          workload.push(util.powerShell('Get-CimInstance Win32_baseboard | select Model,Manufacturer,Product,Version,SerialNumber,PartNumber,SKU | fl', options));
+          workload.push(util.powerShell(`Get-CimInstance Win32_physicalmemoryarray | select ${maxCapacityAttribute}, MemoryDevices | fl`, options));
           util.promiseAll(
             workload
           ).then((data) => {
@@ -608,7 +664,9 @@ function macOsChassisType(model) {
   return 'Other';
 }
 
-function chassis(callback) {
+function chassis(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
+
   const chassisTypes = ['Other',
     'Unknown',
     'Desktop',
@@ -704,7 +762,7 @@ function chassis(callback) {
       }
       if (_windows) {
         try {
-          util.powerShell('Get-CimInstance Win32_SystemEnclosure | select Model,Manufacturer,ChassisTypes,Version,SerialNumber,PartNumber,SKU,SMBIOSAssetTag | fl').then((stdout, error) => {
+          util.powerShell('Get-CimInstance Win32_SystemEnclosure | select Model,Manufacturer,ChassisTypes,Version,SerialNumber,PartNumber,SKU,SMBIOSAssetTag | fl', options).then((stdout, error) => {
             if (!error) {
               let lines = stdout.toString().split('\r\n');
 

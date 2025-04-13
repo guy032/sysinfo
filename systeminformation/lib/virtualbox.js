@@ -13,7 +13,6 @@
 // 14. Docker
 // ----------------------------------------------------------------------------------
 
-const os = require('os');
 const exec = require('child_process').exec;
 const util = require('./util');
 
@@ -25,10 +24,10 @@ function vboxInfo(callback) {
     process.nextTick(() => {
       try {
         exec(util.getVboxmanage() + ' list vms --long', function (error, stdout) {
-          let parts = (os.EOL + stdout.toString()).split(os.EOL + 'Name:');
+          let parts = ('\r\n' + stdout.toString()).split('\r\n' + 'Name:');
           parts.shift();
           parts.forEach(part => {
-            const lines = ('Name:' + part).split(os.EOL);
+            const lines = ('Name:' + part).split('\r\n');
             const state = util.getValue(lines, 'State');
             const running = state.startsWith('running');
             const runningSinceString = running ? state.replace('running (since ', '').replace(')', '').trim() : '';

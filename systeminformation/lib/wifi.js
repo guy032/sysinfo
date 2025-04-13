@@ -19,10 +19,16 @@ const execSync = require('child_process').execSync;
 const util = require('./util');
 
 let _platform = process.platform;
+let _linux, _darwin, _windows;
 
-const _linux = (_platform === 'linux' || _platform === 'android');
-const _darwin = (_platform === 'darwin');
-const _windows = (_platform === 'win32');
+function setPlatform(platform) {
+  _platform = platform || process.platform;
+  _linux = (_platform === 'linux' || _platform === 'android');
+  _darwin = (_platform === 'darwin');
+  _windows = (_platform === 'win32');
+}
+
+setPlatform(_platform);
 
 function wifiDBFromQuality(quality) {
   const qual = parseFloat(quality);
@@ -241,7 +247,7 @@ function getWifiNetworkListNmi() {
     parts.shift();
     parts.forEach(part => {
       part = 'ACTIVE:' + part;
-      const lines = part.split(os.EOL);
+      const lines = part.split('\r\n');
       const channel = util.getValue(lines, 'CHAN');
       const frequency = util.getValue(lines, 'FREQ').toLowerCase().replace('mhz', '').trim();
       const security = util.getValue(lines, 'SECURITY').replace('(', '').replace(')', '');
@@ -438,7 +444,8 @@ function parseWifiDarwin(wifiStr) {
     return result;
   }
 };
-function wifiNetworks(callback) {
+function wifiNetworks(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
   return new Promise((resolve) => {
     process.nextTick(() => {
       let result = [];
@@ -511,18 +518,17 @@ function wifiNetworks(callback) {
         });
       } else if (_windows) {
         let cmd = 'netsh wlan show networks mode=Bssid';
-        util.powerShell(cmd).then((stdout) => {
-          const ssidParts = stdout.toString('utf8').split(os.EOL + os.EOL + 'SSID ');
+        util.powerShell(cmd, options).then((stdout) => {
+          const ssidParts = stdout.toString('utf8').split('\r\n\r\nSSID ');
           ssidParts.shift();
-
           ssidParts.forEach(ssidPart => {
-            const ssidLines = ssidPart.split(os.EOL);
+            const ssidLines = ssidPart.split('\r\n');
             if (ssidLines && ssidLines.length >= 8 && ssidLines[0].indexOf(':') >= 0) {
               const bssidsParts = ssidPart.split(' BSSID');
               bssidsParts.shift();
 
               bssidsParts.forEach((bssidPart) => {
-                const bssidLines = bssidPart.split(os.EOL);
+                const bssidLines = bssidPart.split('\r\n');
                 const bssidLine = bssidLines[0].split(':');
                 bssidLine.shift();
                 const bssid = bssidLine.join(':').trim().toLowerCase();
@@ -586,7 +592,8 @@ function formatBssid(s) {
   return s.join(':');
 }
 
-function wifiConnections(callback) {
+function wifiConnections(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
@@ -704,7 +711,7 @@ function wifiConnections(callback) {
         });
       } else if (_windows) {
         let cmd = 'netsh wlan show interfaces';
-        util.powerShell(cmd).then(function (stdout) {
+        util.powerShell(cmd, options).then(function (stdout) {
           const allLines = stdout.toString().split('\r\n');
           for (let i = 0; i < allLines.length; i++) {
             allLines[i] = allLines[i].trim();
@@ -760,7 +767,8 @@ function wifiConnections(callback) {
 
 exports.wifiConnections = wifiConnections;
 
-function wifiInterfaces(callback) {
+function wifiInterfaces(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
@@ -806,7 +814,7 @@ function wifiInterfaces(callback) {
         });
       } else if (_windows) {
         let cmd = 'netsh wlan show interfaces';
-        util.powerShell(cmd).then(function (stdout) {
+        util.powerShell(cmd, options).then(function (stdout) {
           const allLines = stdout.toString().split('\r\n');
           for (let i = 0; i < allLines.length; i++) {
             allLines[i] = allLines[i].trim();

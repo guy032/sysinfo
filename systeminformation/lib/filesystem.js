@@ -18,17 +18,20 @@ const fs = require('fs');
 
 const exec = require('child_process').exec;
 const execSync = require('child_process').execSync;
-const execPromiseSave = util.promisifySave(require('child_process').exec);
 
 let _platform = process.platform;
+let _linux, _darwin, _windows, _freebsd, _openbsd, _netbsd, _sunos;
 
-const _linux = (_platform === 'linux' || _platform === 'android');
-const _darwin = (_platform === 'darwin');
-const _windows = (_platform === 'win32');
-const _freebsd = (_platform === 'freebsd');
-const _openbsd = (_platform === 'openbsd');
-const _netbsd = (_platform === 'netbsd');
-const _sunos = (_platform === 'sunos');
+function setPlatform(platform) {
+  _platform = platform || process.platform;
+  _linux = (_platform === 'linux' || _platform === 'android');
+  _darwin = (_platform === 'darwin');
+  _windows = (_platform === 'win32');
+  _freebsd = (_platform === 'freebsd');
+  _openbsd = (_platform === 'openbsd');
+  _netbsd = (_platform === 'netbsd');
+  _sunos = (_platform === 'sunos');
+}
 
 let _fs_speed = {};
 let _disk_io = {};
@@ -36,7 +39,8 @@ let _disk_io = {};
 // --------------------------
 // FS - mounted file systems
 
-function fsSize(drive, callback) {
+function fsSize(options = {}, drive, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   if (util.isFunction(drive)) {
     callback = drive;
@@ -195,7 +199,7 @@ function fsSize(drive, callback) {
       if (_windows) {
         try {
           const cmd = `Get-WmiObject Win32_logicaldisk | select Access,Caption,FileSystem,FreeSpace,Size ${drive ? '| where -property Caption -eq ' + drive : ''} | fl`;
-          util.powerShell(cmd).then((stdout, error) => {
+          util.powerShell(cmd, options).then((stdout, error) => {
             if (!error) {
               let devices = stdout.toString().split(/\n\s*\n/);
               devices.forEach(function (device) {
@@ -238,7 +242,8 @@ exports.fsSize = fsSize;
 // --------------------------
 // FS - open files count
 
-function fsOpenFiles(callback) {
+function fsOpenFiles(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
@@ -567,7 +572,8 @@ function blkStdoutToObject(stdout) {
     .replace(/\n/g, '}\n');
 }
 
-function blockDevices(callback) {
+function blockDevices(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
@@ -622,10 +628,10 @@ function blockDevices(callback) {
         let drivetypes = ['Unknown', 'NoRoot', 'Removable', 'Local', 'Network', 'CD/DVD', 'RAM'];
         try {
           // util.wmic('logicaldisk get Caption,Description,DeviceID,DriveType,FileSystem,FreeSpace,Name,Size,VolumeName,VolumeSerialNumber /value').then((stdout, error) => {
-          // util.powerShell('Get-CimInstance Win32_logicaldisk | select Caption,DriveType,Name,FileSystem,Size,VolumeSerialNumber,VolumeName | fl').then((stdout, error) => {
+          // util.powerShell('Get-CimInstance Win32_logicaldisk | select Caption,Description,DeviceID,DriveType,FileSystem,FreeSpace,Name,Size,VolumeName,VolumeSerialNumber /value').then((stdout, error) => {
           const workload = [];
-          workload.push(util.powerShell('Get-CimInstance -ClassName Win32_LogicalDisk | select Caption,DriveType,Name,FileSystem,Size,VolumeSerialNumber,VolumeName | fl'));
-          workload.push(util.powerShell('Get-WmiObject -Class Win32_diskdrive | Select-Object -Property PNPDeviceId,DeviceID, Model, Size, @{L=\'Partitions\'; E={$_.GetRelated(\'Win32_DiskPartition\').GetRelated(\'Win32_LogicalDisk\') | Select-Object -Property DeviceID, VolumeName, Size, FreeSpace}} | fl'));
+          workload.push(util.powerShell('Get-CimInstance -ClassName Win32_LogicalDisk | select Caption,DriveType,Name,FileSystem,Size,VolumeSerialNumber,VolumeName | fl', options));
+          workload.push(util.powerShell('Get-WmiObject -Class Win32_diskdrive | Select-Object -Property PNPDeviceId,DeviceID, Model, Size, @{L=\'Partitions\'; E={$_.GetRelated(\'Win32_DiskPartition\').GetRelated(\'Win32_LogicalDisk\') | Select-Object -Property DeviceID, VolumeName, Size, FreeSpace}} | fl', options));
           util.promiseAll(
             workload
           ).then((res) => {
@@ -724,7 +730,8 @@ function calcFsSpeed(rx, wx) {
   return result;
 }
 
-function fsStats(callback) {
+function fsStats(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
@@ -893,7 +900,8 @@ function calcDiskIO(rIO, wIO, rWaitTime, wWaitTime, tWaitTime) {
   return result;
 }
 
-function disksIO(callback) {
+function disksIO(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
 
   return new Promise((resolve) => {
     process.nextTick(() => {
@@ -1007,8 +1015,8 @@ function disksIO(callback) {
 
 exports.disksIO = disksIO;
 
-function diskLayout(callback) {
-
+function diskLayout(options = {}, callback) {
+  if (options.platform) setPlatform(options.platform);
   function getVendorFromModel(model) {
     const diskManufacturers = [
       { pattern: 'WESTERN.*', manufacturer: 'Western Digital' },
@@ -1055,8 +1063,8 @@ function diskLayout(callback) {
     return result;
   }
 
-  return new Promise((resolve) => {
-    process.nextTick(() => {
+  return new Promise(async (resolve) => {
+    process.nextTick(async () => {
 
       const commitResult = res => {
         for (let i = 0; i < res.length; i++) {
@@ -1402,14 +1410,15 @@ function diskLayout(callback) {
       if (_windows) {
         try {
           const workload = [];
-          workload.push(util.powerShell('Get-CimInstance Win32_DiskDrive | select Caption,Size,Status,PNPDeviceId,DeviceId,BytesPerSector,TotalCylinders,TotalHeads,TotalSectors,TotalTracks,TracksPerCylinder,SectorsPerTrack,FirmwareRevision,SerialNumber,InterfaceType | fl'));
-          workload.push(util.powerShell('Get-PhysicalDisk | select BusType,MediaType,FriendlyName,Model,SerialNumber,Size | fl'));
-          if (util.smartMonToolsInstalled()) {
+          workload.push(util.powerShell('Get-CimInstance Win32_DiskDrive | select Caption,Size,Status,PNPDeviceId,DeviceId,BytesPerSector,TotalCylinders,TotalHeads,TotalSectors,TotalTracks,TracksPerCylinder,SectorsPerTrack,FirmwareRevision,SerialNumber,InterfaceType | fl', options));
+          workload.push(util.powerShell('Get-PhysicalDisk | select BusType,MediaType,FriendlyName,Model,SerialNumber,Size | fl', options));
+          const smartMonToolsInstalled = await util.smartMonToolsInstalled(options);
+          if (smartMonToolsInstalled) {
             try {
-              const smartDev = JSON.parse(execSync('smartctl --scan -j').toString());
+              const smartDev = JSON.parse(await util.powerShell('smartctl --scan -j', options));
               if (smartDev && smartDev.devices && smartDev.devices.length > 0) {
                 smartDev.devices.forEach((dev) => {
-                  workload.push(execPromiseSave(`smartctl -j -a ${dev.name}`, util.execOptsWin));
+                  workload.push(util.powerShell(`smartctl -j -a ${dev.name}`, options));
                 });
               }
             } catch (e) {
