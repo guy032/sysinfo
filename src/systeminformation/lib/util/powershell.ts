@@ -298,6 +298,8 @@ function executeScript(scriptPath: string, options: any = {}): Promise<string | 
         .replaceAll(/\s*#.*$/gm, '') // Remove comments
         .replaceAll(/\r?\n/g, ' ') // Replace newlines with spaces
         .replaceAll(/\s+/g, ' ') // Normalize spaces
+        // eslint-disable-next-line no-useless-escape
+        .replaceAll('"', '\"') // Escape double quotes
         .trim(); // Remove leading/trailing spaces
 
       if (options.batch) {

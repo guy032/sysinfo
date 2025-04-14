@@ -3,7 +3,7 @@ $skip = if ($env:SKIP) { [int]$env:SKIP } else { 0 }
 $batchSize = if ($env:BATCHSIZE) { [int]$env:BATCHSIZE } else { 100 }
 
 # Retrieve all PNP devices
-$devices = Get-CimInstance Win32_PNPEntity;
+$devices = Get-CimInstance Win32_PNPEntity | Where-Object { $_.PNPClass -eq 'Bluetooth' };
 
 # Create array for results
 $allResults = @();
@@ -54,4 +54,4 @@ $response = @{
 };
 
 # Output as JSON
-ConvertTo-Json -InputObject $response -Compress;
+ConvertTo-Json -InputObject $response -Depth 10 -Compress;

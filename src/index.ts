@@ -9,13 +9,13 @@ import {
   battery as getBatteryInfo,
   bios as getBios,
   blockDevices as getBlockDevices,
+  bluetoothDevices as getBluetoothDevices,
   chassis as getChassis,
   cpu as getCpu,
   diskLayout as getDiskLayout,
   fsSize as getFsSize,
   gps as getGps,
   graphics as getGraphics,
-  hardwareDevices as getHardwareDevices,
   inetLatency as getInetLatency,
   mem as getMem,
   memLayout as getMemLayout,
@@ -56,6 +56,7 @@ interface TestConfig {
   filesystem: boolean;
   osinfo: boolean;
   processes: boolean;
+  services: boolean;
   battery: boolean;
   wifi: boolean;
   audio: boolean;
@@ -87,20 +88,21 @@ const testsToRun: TestConfig = {
   battery: false,
   audio: false,
   bluetooth: false,
-  filesystem: true,
-
+  usb: false,
+  internet: false,
+  printers: false,
   osinfo: false,
-  processes: false,
+  processes: true,
+  services: false,
+
   wifi: false,
   cpu: false,
   graphics: false,
-  internet: false,
   memory: false,
   network: false,
-  printers: false,
   system: false,
-  usb: false,
   users: false,
+  filesystem: false,
 };
 
 // Max number of concurrent tasks
@@ -355,12 +357,12 @@ async function processBatches<T>(tasks: Array<Promise<T | null>>): Promise<Array
   if (testsToRun.bluetooth) {
     tasks.push(
       withTimeout(
-        getHardwareDevices(options).then((data) => {
-          results.hardwareDevices = data;
+        getBluetoothDevices(options).then((data) => {
+          results.bluetoothDevices = data;
 
           return data;
         }),
-        'hardwareDevices',
+        'bluetooth',
       ),
     );
   }
@@ -528,14 +530,6 @@ async function processBatches<T>(tasks: Array<Promise<T | null>>): Promise<Array
         'osInfo',
       ),
       withTimeout(
-        getApplications(options).then((data) => {
-          results.applications = data;
-
-          return data;
-        }),
-        'applications',
-      ),
-      withTimeout(
         getShell(options).then((data) => {
           results.shell = data;
 
@@ -550,6 +544,14 @@ async function processBatches<T>(tasks: Array<Promise<T | null>>): Promise<Array
           return data;
         }),
         'uuid',
+      ),
+      withTimeout(
+        getApplications(options).then((data) => {
+          results.applications = data;
+
+          return data;
+        }),
+        'applications',
       ),
     ];
     tasks.push(...osTasks);
@@ -660,8 +662,14 @@ async function processBatches<T>(tasks: Array<Promise<T | null>>): Promise<Array
           return data;
         }),
         'processes',
-        180_000,
-      ), // 3 minute timeout
+      ),
+    ];
+    tasks.push(...processTasks);
+  }
+
+  // Services
+  if (testsToRun.services) {
+    const processTasks = [
       withTimeout(
         getServices(options).then((data) => {
           results.services = data;
@@ -695,6 +703,7 @@ async function processBatches<T>(tasks: Array<Promise<T | null>>): Promise<Array
 
     // Display results
     console.log(inspect(results, { depth: 5, colors: true }));
+    // console.log(JSON.stringify(results));
   } catch (error) {
     console.error('Error in batch processing:', error);
   }

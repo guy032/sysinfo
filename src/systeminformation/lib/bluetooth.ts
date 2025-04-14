@@ -1,5 +1,5 @@
 // ==================================================================================
-// hardware.ts
+// bluetooth.ts
 // ----------------------------------------------------------------------------------
 // Description:   System Information - library
 //                for Node.js
@@ -8,7 +8,7 @@
 // ----------------------------------------------------------------------------------
 // License:       MIT
 // ==================================================================================
-// 17. hardware
+// 17. bluetooth
 // ----------------------------------------------------------------------------------
 
 import { exec, execSync } from 'child_process';
@@ -24,15 +24,15 @@ import { getPlatformFlagsFromOptions } from './util/platform';
  * Get the path to the PowerShell script
  * @returns The absolute path to the bluetooth PowerShell script
  */
-function getHardwareScriptPath(): string {
+function getBluetoothScriptPath(): string {
   // Calculate the path to the PowerShell script relative to this file
-  return path.resolve(__dirname, '../powershell/hardware.ps1');
+  return path.resolve(__dirname, '../powershell/bluetooth.ps1');
 }
 
 /**
  * Bluetooth device information
  */
-export interface IHardwareDevice {
+export interface IBluetoothDevice {
   device: string | null;
   name: string | null;
   manufacturer: string | null;
@@ -59,7 +59,7 @@ export interface IBluetoothOptions {
 /**
  * Callback function type for bluetooth data
  */
-type IBluetoothCallback = (data: IHardwareDevice[]) => void;
+type IBluetoothCallback = (data: IBluetoothDevice[]) => void;
 
 /**
  * Parse the type of bluetooth device
@@ -175,7 +175,7 @@ function parseLinuxBluetoothInfo(
   lines: string[],
   macAddr1: string | null,
   macAddr2: string | null,
-): IHardwareDevice {
+): IBluetoothDevice {
   return {
     device: null,
     name: util.getValue(lines, 'name', '='),
@@ -208,7 +208,7 @@ interface IDarwinBluetoothObject {
 function parseDarwinBluetoothDevices(
   bluetoothObject: IDarwinBluetoothObject,
   macAddr2: string | null,
-): IHardwareDevice {
+): IBluetoothDevice {
   const typeStr = (
     (bluetoothObject.device_minorClassOfDevice_string ||
       bluetoothObject.device_majorClassOfDevice_string ||
@@ -216,7 +216,7 @@ function parseDarwinBluetoothDevices(
       '') + (bluetoothObject.device_name || '')
   ).toLowerCase();
 
-  const result: IHardwareDevice = {
+  const result: IBluetoothDevice = {
     device: bluetoothObject.device_services || '',
     name: bluetoothObject.device_name || '',
     manufacturer:
@@ -248,12 +248,12 @@ function parseDarwinBluetoothDevices(
 }
 
 /**
- * Get hardware devices information
+ * Get bluetooth devices information
  */
-export function hardwareDevices(
+export function bluetoothDevices(
   options: IBluetoothOptions = {},
   callback?: IBluetoothCallback,
-): Promise<IHardwareDevice[]> {
+): Promise<IBluetoothDevice[]> {
   // Get platform flags from options
   const platform: PlatformFlags = getPlatformFlagsFromOptions(options);
 
@@ -271,7 +271,7 @@ export function hardwareDevices(
     while (hasMoreData) {
       try {
         // Get the script path
-        const scriptPath = getHardwareScriptPath();
+        const scriptPath = getBluetoothScriptPath();
 
         // Execute the script with parameters properly passed as separate args
         options.batch = {
@@ -309,7 +309,7 @@ export function hardwareDevices(
 
   return new Promise((resolve) => {
     process.nextTick(async () => {
-      const result: IHardwareDevice[] = [];
+      const result: IBluetoothDevice[] = [];
 
       if (platform._linux) {
         // get files in /var/lib/bluetooth/ recursive
@@ -467,7 +467,7 @@ export function hardwareDevices(
 
           resolve(devices);
         } catch (error) {
-          console.error('Hardware script error:', error);
+          console.error('Bluetooth script error:', error);
 
           if (callback) {
             callback(result);

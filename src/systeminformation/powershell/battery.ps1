@@ -22,8 +22,8 @@ if ($batteryFullCharged) {
 $result = @{ 
     BatteryData = $batteryData; 
     DesignedCapacity = $designedCapacity; 
-    FullChargedCapacity = $fullChargedCapacity 
+    FullChargedCapacity = $fullChargedCapacity;
 };
 
 # Output as JSON
-ConvertTo-Json -Compress -InputObject $result
+ConvertTo-Json -Compress -InputObject $result;
