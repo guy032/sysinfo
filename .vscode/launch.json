@@ -1,0 +1,46 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Service (Windows)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["run", "debug:dev"],
+      "cwd": "${workspaceFolder}/new-service",
+      "internalConsoleOptions": "openOnSessionStart",
+      "sourceMaps": true,
+      "windows": {
+        "enabled": true
+      },
+      "linux": {
+        "enabled": false
+      },
+      "osx": {
+        "enabled": false
+      }
+    },
+    {
+      "name": "Debug Service (Linux/macOS)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["run", "debug:dev"],
+      "cwd": "${workspaceFolder}/new-service",
+      "internalConsoleOptions": "openOnSessionStart",
+      "sourceMaps": true,
+      "windows": {
+        "enabled": false
+      },
+      "linux": {
+        "enabled": true
+      },
+      "osx": {
+        "enabled": true
+      }
+    }
+  ]
+}

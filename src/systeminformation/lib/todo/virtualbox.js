@@ -14,7 +14,7 @@
 // ----------------------------------------------------------------------------------
 
 const exec = require('child_process').exec;
-const util = require('./util');
+const util = require('../util');
 
 function vboxInfo(callback) {
 

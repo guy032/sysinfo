@@ -13,7 +13,7 @@
 // 13. Docker
 // ----------------------------------------------------------------------------------
 
-const util = require('./util');
+const util = require('../util');
 const DockerSocket = require('./dockerSocket');
 
 let _platform = process.platform;

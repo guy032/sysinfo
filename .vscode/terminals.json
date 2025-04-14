@@ -1,0 +1,19 @@
+{
+    "autorun": true,
+    "terminals": [
+      {
+        "name": "GUI",
+        "commands": [
+          "cd gui",
+          "sudo yarn tauri:dev"
+        ]
+      },
+      {
+        "name": "Service",
+        "commands": [
+          "cd new-service",
+          "sudo yarn start:dev"
+        ]
+      }
+    ]
+  }
