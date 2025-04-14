@@ -1,4 +1,6 @@
 import { spawn } from 'child_process';
+import * as fs from 'fs';
+import path from 'path';
 
 import { executeSingleCommand, winRMBatch, winRMSingleShell, winRMWorkload } from './winrm';
 
@@ -268,7 +270,54 @@ function init(powershellPath: string): void {
   _powerShell = powershellPath;
 }
 
+/**
+ * Execute a PowerShell script file with consistent handling for both local and WinRM execution
+ *
+ * @param {string} scriptPath - Path to the PowerShell script
+ * @param {object} options - Options for execution including WinRM details if needed
+ * @returns {Promise<string|string[]>} - Script execution output
+ */
+function executeScript(scriptPath: string, options: any = {}): Promise<string | string[]> {
+  // Ensure the script path is absolute
+  const absoluteScriptPath = path.isAbsolute(scriptPath) ? scriptPath : path.resolve(scriptPath);
+
+  // Check if the script exists
+  if (!fs.existsSync(absoluteScriptPath)) {
+    return Promise.reject(new Error(`Script file not found: ${absoluteScriptPath}`));
+  }
+
+  let command: string;
+
+  // Handle WinRM vs local execution
+  if (options.winrm && options.host && options.username && options.password) {
+    // For WinRM, we need to inline the script content
+    try {
+      const scriptContent = fs.readFileSync(absoluteScriptPath, 'utf8');
+      // Normalize the script to a single line for WinRM
+      command = scriptContent
+        .replaceAll(/\s*#.*$/gm, '') // Remove comments
+        .replaceAll(/\r?\n/g, ' ') // Replace newlines with spaces
+        .replaceAll(/\s+/g, ' ') // Normalize spaces
+        .trim(); // Remove leading/trailing spaces
+
+      if (options.batch) {
+        command = `$env:SKIP=${options.batch.skip}; $env:BATCHSIZE=${options.batch.batchSize}; ${command}`;
+        // console.log(command);
+      }
+    } catch (error) {
+      return Promise.reject(new Error(`Error reading script file: ${error}`));
+    }
+  } else {
+    // For local execution, use the script path directly (without &)
+    command = `"${absoluteScriptPath}"`;
+  }
+
+  // Execute the command using the existing powerShell function
+  return powerShell(command, options);
+}
+
 export {
+  executeScript,
   getPowerShellPath,
   init,
   powerShell,

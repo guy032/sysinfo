@@ -1,7 +1,6 @@
 import { audio as audioLib } from '../lib/audio';
 // Import system information modules with unique names
-import batteryLib from '../lib/battery';
-import { bluetoothDevices as bluetoothDevicesLib } from '../lib/bluetooth';
+import { battery as batteryLib } from '../lib/battery';
 import { cpu as cpuLib } from '../lib/cpu';
 import {
   blockDevices as blockDevicesLib,
@@ -12,6 +11,7 @@ import {
 } from '../lib/filesystem';
 import { gps as gpsLib } from '../lib/gps';
 import { graphics as graphicsLib } from '../lib/graphics';
+import { hardwareDevices as hardwareDevicesLib } from '../lib/hardware';
 import { inetLatency as inetLatencyLib } from '../lib/internet';
 import { mem as memLib, memLayout as memLayoutLib } from '../lib/memory';
 import {
@@ -77,8 +77,6 @@ const withTryCatch =
       taskName = fn._fnName;
     }
 
-    const startTime = Date.now();
-
     try {
       return await fn(...args);
     } catch (error) {
@@ -102,8 +100,8 @@ export const battery = withTryCatch(createWinRMWrapper(promisifyWithData(battery
 export const audio = withTryCatch(createWinRMWrapper(promisifyWithData(audioLib)));
 
 // Bluetooth
-export const bluetoothDevices = withTryCatch(
-  createWinRMWrapper(promisifyWithData(bluetoothDevicesLib)),
+export const hardwareDevices = withTryCatch(
+  createWinRMWrapper(promisifyWithData(hardwareDevicesLib)),
 );
 
 // CPU

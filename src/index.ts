@@ -9,13 +9,13 @@ import {
   battery as getBatteryInfo,
   bios as getBios,
   blockDevices as getBlockDevices,
-  bluetoothDevices as getBluetoothDevices,
   chassis as getChassis,
   cpu as getCpu,
   diskLayout as getDiskLayout,
   fsSize as getFsSize,
   gps as getGps,
   graphics as getGraphics,
+  hardwareDevices as getHardwareDevices,
   inetLatency as getInetLatency,
   mem as getMem,
   memLayout as getMemLayout,
@@ -83,13 +83,15 @@ const password = process.env.WINRM_PASSWORD || process.env.PASSWORD || '';
 
 // Configure which tests to run
 const testsToRun: TestConfig = {
-  filesystem: false,
-  osinfo: false,
-  processes: false,
+  gps: false,
   battery: false,
-  wifi: false,
   audio: false,
   bluetooth: false,
+  filesystem: true,
+
+  osinfo: false,
+  processes: false,
+  wifi: false,
   cpu: false,
   graphics: false,
   internet: false,
@@ -98,7 +100,6 @@ const testsToRun: TestConfig = {
   printers: false,
   system: false,
   usb: false,
-  gps: true,
   users: false,
 };
 
@@ -354,12 +355,12 @@ async function processBatches<T>(tasks: Array<Promise<T | null>>): Promise<Array
   if (testsToRun.bluetooth) {
     tasks.push(
       withTimeout(
-        getBluetoothDevices(options).then((data) => {
-          results.bluetoothDevices = data;
+        getHardwareDevices(options).then((data) => {
+          results.hardwareDevices = data;
 
           return data;
         }),
-        'bluetoothDevices',
+        'hardwareDevices',
       ),
     );
   }

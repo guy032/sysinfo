@@ -1,12 +1,13 @@
-import * as fs from 'fs';
 import path from 'path';
 
 import * as util from './util';
+import type { PlatformFlags } from './util/platform';
+import { getPlatformFlagsFromOptions } from './util/platform';
 
 /**
  * GPS location data interface
  */
-export interface GpsData {
+export interface IGpsData {
   latitude?: number;
   longitude?: number;
   status?: string;
@@ -22,7 +23,7 @@ export interface GpsData {
 /**
  * Options for GPS retrieval
  */
-export interface GpsOptions {
+export interface IGpsOptions {
   winrm?: any;
   host?: string;
   port?: number;
@@ -35,7 +36,7 @@ export interface GpsOptions {
 /**
  * Callback function type for GPS data
  */
-type GpsCallback = (data: GpsData) => void;
+type IGpsCallback = (data: IGpsData) => void;
 
 /**
  * Get the path to the PowerShell script
@@ -49,38 +50,38 @@ function getGpsScriptPath(): string {
 /**
  * Get current GPS/location of the system
  *
- * @param {GpsOptions} options - options for WinRM if used remotely
- * @param {GpsCallback} callback - callback function
- * @returns {Promise<GpsData>} - GPS data containing latitude and longitude
+ * @param {IGpsOptions} options - options for WinRM if used remotely
+ * @param {IGpsCallback} callback - callback function
+ * @returns {Promise<IGpsData>} - GPS data containing latitude and longitude
  */
-export function gps(options: GpsOptions = {}, callback?: GpsCallback): Promise<GpsData> {
-  let result: GpsData = {};
+export function gps(options: IGpsOptions = {}, callback?: IGpsCallback): Promise<IGpsData> {
+  // Get platform flags from options
+  const platform: PlatformFlags = getPlatformFlagsFromOptions(options);
+
+  let result: IGpsData = {};
 
   return new Promise((resolve) => {
     process.nextTick(() => {
       try {
+        // Only proceed with Windows platforms
+        if (!platform._windows) {
+          result = { error: true, message: 'GPS data only available on Windows platforms' };
+
+          if (callback) {
+            callback(result);
+          }
+
+          resolve(result);
+
+          return;
+        }
+
         // Get the path to the PowerShell script file
         const scriptPath = getGpsScriptPath();
 
-        // For WinRM connections, we need to inline the script content
-        // For local execution, we can simply reference the file
-        let command: string;
-
-        if (options.winrm) {
-          // When using WinRM, we need to send the script content directly
-          // Read the script file and convert it to a single line
-          const scriptContent = fs.readFileSync(scriptPath, 'utf8');
-          command = scriptContent
-            .replaceAll(/\r?\n/g, ' ') // Replace newlines with spaces
-            .replaceAll(/\s+/g, ' ') // Normalize spaces
-            .trim(); // Remove leading/trailing spaces
-        } else {
-          // For local execution, we can reference the script file
-          command = `& "${scriptPath}"`;
-        }
-
+        // Execute the PowerShell script using the centralized utility function
         util
-          .powerShell(command, options)
+          .executeScript(scriptPath, options)
           .then((stdout) => {
             // Convert to string if it's an array
             const output = Array.isArray(stdout) ? stdout.join('\n') : stdout;

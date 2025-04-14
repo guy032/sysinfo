@@ -19,6 +19,7 @@ import path from 'path';
 
 // Keep only imports needed for the file's internal logic
 import { getCodepage, init as getCodepageInit } from './get-codepage';
+import { getPlatformFlags, getPlatformFlagsFromOptions } from './platform';
 import { getPowerShellPath, init as powerShellInit, powerShell } from './powershell';
 import { promiseAll } from './promise';
 import { init as smartMonToolsInit } from './smart-mon-tools-installed';
@@ -36,6 +37,7 @@ let _sunos = false;
 
 /**
  * Set platform for internal detection
+ * @deprecated Use getPlatformFlags from './platform' instead
  */
 function setPlatform(platform?: string): void {
   _platform = platform || process.platform;
@@ -176,14 +178,16 @@ export { default as parseDateTime } from './parse-date-time';
 export { default as parseHead } from './parse-head';
 export { default as parseTime } from './parse-time';
 export { plistParser, plistReader, strIsNumeric } from './plist-parser';
-export {
-  powerShell,
-  powerShellRelease,
-  powerShellStart,
-  powerShellWinRMBatch,
-  powerShellWinRMSingleShell,
-  powerShellWinRMWorkload,
-} from './powershell';
+
+// PowerShell exports
+export { executeScript } from './powershell';
+export { getPowerShellPath } from './powershell';
+export { powerShell } from './powershell';
+export { powerShellRelease } from './powershell';
+export { powerShellStart } from './powershell';
+export { powerShellWinRMBatch } from './powershell';
+export { powerShellWinRMSingleShell } from './powershell';
+export { powerShellWinRMWorkload } from './powershell';
 export { promiseAll, promisify, promisifySave } from './promise';
 export { default as sanitizeShellString } from './sanitize-shell-string';
 export { default as semverCompare } from './semver-compare';
@@ -196,3 +200,6 @@ export { default as wmic } from './wmic';
 
 // Local exports
 export { execOptsLinux, execOptsWin, execSafe, mathMin, WINDIR };
+
+// Export platform utilities
+export { getPlatformFlags, getPlatformFlagsFromOptions } from './platform';

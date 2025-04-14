@@ -198,6 +198,7 @@ async function executeInShell(
       cmdTimeout,
       'Receive output',
     );
+    // console.log('outputResult', outputResult);
 
     // Always cleanup the shell
     await cleanupShell(winrm, params);
