@@ -42,19 +42,12 @@ type PromisifiedFunction = (options: WinRMConfig, optionalParam?: any) => Promis
  */
 export const promisifyWithData =
   (callbackFn: CallbackFunction): PromisifiedFunction =>
-  (options: WinRMConfig, optionalParam?: any): Promise<any> =>
+  (options: WinRMConfig): Promise<any> =>
     new Promise((resolve, reject) => {
       try {
-        // Check if the function is networkStats which has an optional middle parameter
-        if (['networkStats', 'versions', 'services'].includes(callbackFn.name || '')) {
-          callbackFn(options, optionalParam, (data) => {
-            resolve(data);
-          });
-        } else {
-          callbackFn(options, (data) => {
-            resolve(data);
-          });
-        }
+        callbackFn(options, (data) => {
+          resolve(data);
+        });
       } catch (error) {
         reject(error);
       }

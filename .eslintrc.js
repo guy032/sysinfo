@@ -276,6 +276,8 @@ module.exports = {
     'no-constant-condition': 'error',
     'no-dupe-else-if': 'error',
     'lines-between-class-members': ['error', 'always'],
+    'no-nested-ternary': 'off',
+    'unicorn/no-nested-ternary': 'off',
     'no-console': [
       'error',
       {

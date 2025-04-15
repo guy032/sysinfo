@@ -125,20 +125,20 @@ export const inetLatency = withTryCatch(createWinRMWrapper(promisifyWithData(ine
 export const mem = withTryCatch(createWinRMWrapper(promisifyWithData(memLib)));
 export const memLayout = withTryCatch(createWinRMWrapper(promisifyWithData(memLayoutLib)));
 
-// Network
+// // Network
 export const networkInterfaces = withTryCatch(
   createWinRMWrapper(promisifyWithData(networkInterfacesLib)),
-);
-export const networkStats = withTryCatch(createWinRMWrapper(promisifyWithData(networkStatsLib)));
-export const networkGatewayDefault = withTryCatch(
-  createWinRMWrapper(promisifyWithData(networkGatewayDefaultLib)),
 );
 export const networkInterfaceDefault = withTryCatch(
   createWinRMWrapper(promisifyWithData(networkInterfaceDefaultLib)),
 );
+export const networkGatewayDefault = withTryCatch(
+  createWinRMWrapper(promisifyWithData(networkGatewayDefaultLib)),
+);
 export const networkConnections = withTryCatch(
   createWinRMWrapper(promisifyWithData(networkConnectionsLib)),
 );
+export const networkStats = withTryCatch(createWinRMWrapper(promisifyWithData(networkStatsLib)));
 
 // OS
 export const osInfo = withTryCatch(createWinRMWrapper(promisifyWithData(osInfoLib)));

@@ -301,6 +301,7 @@ function executeScript(scriptPath: string, options: any = {}): Promise<string | 
         // eslint-disable-next-line no-useless-escape
         .replaceAll('"', '\"') // Escape double quotes
         .trim(); // Remove leading/trailing spaces
+      // console.log('command', command);
 
       if (options.batch) {
         command = `$env:SKIP=${options.batch.skip}; $env:BATCHSIZE=${options.batch.batchSize}; ${command}`;

@@ -25,16 +25,19 @@ export default function getValue(
       lineLower = lineLower.trim();
     }
 
+    // Check if line starts with property, then apply additional matching if needed
     if (
-      lineLower.startsWith(property + separator) ||
-      lineLower.startsWith(property + ' ' + separator)
+      lineLower.startsWith(property) &&
+      (lineMatch
+        ? lineLower.includes(property + separator) || lineLower.includes(property + ' ' + separator)
+        : true)
     ) {
       if (lineMatch) {
         result = line;
       } else {
-        const parts = line.split(separator);
+        const parts = trimmed ? line.trim().split(separator) : line.split(separator);
 
-        if (parts.length > 1) {
+        if (parts.length >= 2) {
           parts.shift();
           result = parts.join(separator).trim();
         }

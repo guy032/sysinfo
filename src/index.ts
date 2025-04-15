@@ -92,16 +92,17 @@ const testsToRun: TestConfig = {
   internet: false,
   printers: false,
   osinfo: false,
-  processes: true,
+  processes: false,
   services: false,
-
   wifi: false,
-  cpu: false,
   graphics: false,
   memory: false,
-  network: false,
+  network: true,
+
   system: false,
   users: false,
+
+  cpu: false,
   filesystem: false,
 };
 
@@ -475,14 +476,6 @@ async function processBatches<T>(tasks: Array<Promise<T | null>>): Promise<Array
         'networkStats',
       ),
       withTimeout(
-        getNetworkInterfaceDefault(options).then((data) => {
-          results.networkInterfaceDefault = data;
-
-          return data;
-        }),
-        'networkInterfaceDefault',
-      ),
-      withTimeout(
         getNetworkGatewayDefault(options).then((data) => {
           results.networkGatewayDefault = data;
 
@@ -505,6 +498,14 @@ async function processBatches<T>(tasks: Array<Promise<T | null>>): Promise<Array
           return data;
         }),
         'networkConnections',
+      ),
+      withTimeout(
+        getNetworkInterfaceDefault(options).then((data) => {
+          results.defaultNetworkInterface = data;
+
+          return data;
+        }),
+        'defaultNetworkInterface',
       ),
     ];
     tasks.push(...networkTasks);
