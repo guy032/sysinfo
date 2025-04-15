@@ -285,6 +285,7 @@ export function bluetoothDevices(
 
         // Extract the device items and metadata
         const items = batchData.Items || [];
+
         totalCount = batchData.TotalCount || 0;
 
         // Add devices from this batch to our collection

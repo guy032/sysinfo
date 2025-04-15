@@ -87,7 +87,7 @@ const testsToRun: TestConfig = {
   gps: false,
   battery: false,
   audio: false,
-  bluetooth: false,
+  bluetooth: true,
   usb: false,
   internet: false,
   printers: false,
@@ -97,8 +97,7 @@ const testsToRun: TestConfig = {
   wifi: false,
   graphics: false,
   memory: false,
-  network: true,
-
+  network: false,
   system: false,
   users: false,
 
