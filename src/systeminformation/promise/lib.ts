@@ -9,6 +9,7 @@ import {
   disksIO as disksIOLib,
   fsOpenFiles as fsOpenFilesLib,
   fsSize as fsSizeLib,
+  fsStats as fsStatsLib,
 } from '../lib/filesystem';
 import { gps as gpsLib } from '../lib/gps';
 import { graphics as graphicsLib } from '../lib/graphics';
@@ -117,6 +118,7 @@ export const diskLayout = withTryCatch(createWinRMWrapper(promisifyWithData(disk
 export const blockDevices = withTryCatch(createWinRMWrapper(promisifyWithData(blockDevicesLib)));
 export const fsSize = withTryCatch(createWinRMWrapper(promisifyWithData(fsSizeLib)));
 export const fsOpenFiles = withTryCatch(createWinRMWrapper(promisifyWithData(fsOpenFilesLib)));
+export const fsStats = withTryCatch(createWinRMWrapper(promisifyWithData(fsStatsLib)));
 
 // Internet
 export const inetLatency = withTryCatch(createWinRMWrapper(promisifyWithData(inetLatencyLib)));

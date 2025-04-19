@@ -1,40 +1,20 @@
-import { execSync } from 'child_process';
-import fs from 'fs';
-import os from 'os';
-
-// Define constants and variables
-const WINDIR = process.env.WINDIR || 'C:\\Windows';
-let wmicPath = '';
+import * as util from '../util';
 
 /**
  * Get the WMIC executable path
  *
  * @returns {string} Path to WMIC executable
  */
-export function getWmic(): string {
-  if (os.type() === 'Windows_NT' && !wmicPath) {
-    wmicPath = WINDIR + '\\system32\\wbem\\wmic.exe';
+export async function getWmic(options = {}): Promise<string> {
+  const stdout = await util.powerShell('Get-Command wmic | ConvertTo-Json -Compress', options);
+  const stdoutStr = Array.isArray(stdout) ? stdout[0] : stdout;
+  const wmicPath = JSON.parse(stdoutStr).Path;
+  // CommandType     Name                                               Version    Source
+  // -----------     ----                                               -------    ------
+  // Application     WMIC.exe                                           10.0.26... C:\WINDOWS\System32\Wbem\WMIC.exe
 
-    if (!fs.existsSync(wmicPath)) {
-      try {
-        // For TypeScript, we need to define the execOptsWin type
-        const execOptsWin = {
-          windowsHide: true,
-          maxBuffer: 1024 * 50_000,
-          encoding: 'utf8' as const,
-          env: { ...process.env, LANG: 'en_US.UTF-8' },
-        };
-
-        const wmicPathArray = execSync('WHERE WMIC', execOptsWin).toString().split('\r\n');
-
-        wmicPath = wmicPathArray && wmicPathArray.length > 0 ? wmicPathArray[0] : 'wmic';
-      } catch {
-        wmicPath = 'wmic';
-      }
-    }
-  }
-
-  return wmicPath;
+  // Handle potential array return by extracting first element or using the string directly
+  return Array.isArray(wmicPath) ? wmicPath[0] : wmicPath;
 }
 
 export default getWmic;

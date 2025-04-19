@@ -164,6 +164,7 @@ async function executeInShell(
 
     // Set up the command
     params.command = `powershell -Command "${cmdToExecute}"`;
+    // console.log('params.command', params.command);
 
     // Execute the command
     const execResult = await withTimeout<string>(

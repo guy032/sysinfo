@@ -23,7 +23,6 @@ import { getPlatformFlags, getPlatformFlagsFromOptions } from './platform';
 import { getPowerShellPath, init as powerShellInit, powerShell } from './powershell';
 import { promiseAll } from './promise';
 import { init as smartMonToolsInit } from './smart-mon-tools-installed';
-import { init as wmicInit } from './wmic';
 
 // Platform detection
 let _platform: string = process.platform;
@@ -53,30 +52,10 @@ function setPlatform(platform?: string): void {
 // Initialize platform
 setPlatform();
 
-// Global constants and variables
-const _cores = 0;
-const wmicPath = '';
-const codepage = '';
-const _smartMonToolsInstalled: boolean | null = null;
-const _rpi_cpuinfo: any = null;
-
 const WINDIR: string = process.env.WINDIR || 'C:\\Windows';
 
 // powerShell
 let _powerShell = '';
-
-// Safe string utility functions
-const stringUtils = {
-  replace: (str: string, searchValue: string | RegExp, replaceValue: string): string =>
-    String(str).replace(searchValue, replaceValue),
-  toLowerCase: (str: string): string => String(str).toLowerCase(),
-  toString: String,
-  substr: (str: string, from: number, length?: number): string => String(str).slice(from, length),
-  substring: (str: string, start: number, end?: number): string => String(str).slice(start, end),
-  trim: (str: string): string => String(str).trim(),
-  startsWith: (str: string, searchString: string, position?: number): boolean =>
-    String(str).startsWith(searchString, position),
-};
 
 // Math utility
 const mathMin = Math.min;
@@ -141,7 +120,6 @@ const originalPromiseAll = promiseAll;
 _powerShell = getPowerShellPath();
 
 // Initialize any functions that need dependencies
-wmicInit(powerShell);
 getCodepageInit(powerShell);
 smartMonToolsInit(powerShell);
 powerShellInit(_powerShell);
@@ -196,7 +174,6 @@ export { default as sortByKey } from './sort-by-key';
 export { default as splitByNumber } from './split-by-number';
 export { default as toInt } from './to-int';
 export { default as unique } from './unique';
-export { default as wmic } from './wmic';
 
 // Local exports
 export { execOptsLinux, execOptsWin, execSafe, mathMin, WINDIR };

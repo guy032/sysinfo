@@ -13,7 +13,9 @@ import {
   chassis as getChassis,
   cpu as getCpu,
   diskLayout as getDiskLayout,
+  fsOpenFiles as getFsOpenFiles,
   fsSize as getFsSize,
+  fsStats as getFsStats,
   gps as getGps,
   graphics as getGraphics,
   inetLatency as getInetLatency,
@@ -84,25 +86,24 @@ const password = process.env.WINRM_PASSWORD || process.env.PASSWORD || '';
 
 // Configure which tests to run
 const testsToRun: TestConfig = {
-  gps: false,
-  battery: false,
-  audio: false,
+  gps: true,
+  battery: true,
+  audio: true,
   bluetooth: true,
-  usb: false,
-  internet: false,
-  printers: false,
-  osinfo: false,
-  processes: false,
-  services: false,
-  wifi: false,
-  graphics: false,
-  memory: false,
-  network: false,
-  system: false,
-  users: false,
-
-  cpu: false,
-  filesystem: false,
+  usb: true,
+  internet: true,
+  printers: true,
+  osinfo: true,
+  processes: true,
+  services: true,
+  wifi: true,
+  graphics: true,
+  memory: true,
+  network: true,
+  system: true,
+  users: true,
+  cpu: true,
+  filesystem: true,
 };
 
 // Max number of concurrent tasks
@@ -294,6 +295,53 @@ async function processBatches<T>(tasks: Array<Promise<T | null>>): Promise<Array
   const tasks: Array<Promise<unknown>> = [];
   const results: ResultsData = {};
 
+  // Filesystem
+  if (testsToRun.filesystem) {
+    const filesystemTasks = [
+      withTimeout(
+        getDiskLayout(options).then((data) => {
+          results.diskLayout = data;
+
+          return data;
+        }),
+        'diskLayout',
+      ),
+      withTimeout(
+        getBlockDevices(options).then((data) => {
+          results.blockDevices = data;
+
+          return data;
+        }),
+        'blockDevices',
+      ),
+      withTimeout(
+        getFsSize(options).then((data) => {
+          results.fsSize = data;
+
+          return data;
+        }),
+        'fsSize',
+      ),
+      withTimeout(
+        getFsStats(options).then((data) => {
+          results.fsStats = data;
+
+          return data;
+        }),
+        'fsStats',
+      ),
+      withTimeout(
+        getFsOpenFiles(options).then((data) => {
+          results.fsOpenFiles = data;
+
+          return data;
+        }),
+        'fsOpenFiles',
+      ),
+    ];
+    tasks.push(...filesystemTasks);
+  }
+
   // Battery
   if (testsToRun.battery) {
     tasks.push(
@@ -393,37 +441,6 @@ async function processBatches<T>(tasks: Array<Promise<T | null>>): Promise<Array
         'graphics',
       ),
     );
-  }
-
-  // Filesystem
-  if (testsToRun.filesystem) {
-    const filesystemTasks = [
-      withTimeout(
-        getDiskLayout(options).then((data) => {
-          results.diskLayout = data;
-
-          return data;
-        }),
-        'diskLayout',
-      ),
-      withTimeout(
-        getBlockDevices(options).then((data) => {
-          results.blockDevices = data;
-
-          return data;
-        }),
-        'blockDevices',
-      ),
-      withTimeout(
-        getFsSize(options).then((data) => {
-          results.fsSize = data;
-
-          return data;
-        }),
-        'fsSize',
-      ),
-    ];
-    tasks.push(...filesystemTasks);
   }
 
   // Internet
@@ -703,7 +720,7 @@ async function processBatches<T>(tasks: Array<Promise<T | null>>): Promise<Array
 
     // Display results
     console.log(inspect(results, { depth: 5, colors: true }));
-    // console.log(JSON.stringify(results));
+    console.log(JSON.stringify(results));
   } catch (error) {
     console.error('Error in batch processing:', error);
   }
