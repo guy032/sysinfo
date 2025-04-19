@@ -107,7 +107,7 @@ const testsToRun: TestConfig = {
 };
 
 // Max number of concurrent tasks
-const MAX_CONCURRENT_TASKS = 10;
+const MAX_CONCURRENT_TASKS = 5;
 
 // todo: add windows scheduled tasks
 // todo: add windows updates

@@ -15,7 +15,7 @@ import { exec, execSync } from 'child_process';
 import * as fs from 'fs';
 import path from 'path';
 
-import * as bluetoothVendors from './bluetoothVendors';
+import bluetoothVendors from './bluetoothVendors';
 import * as util from './util';
 import type { PlatformFlags } from './util/platform';
 import { getPlatformFlagsFromOptions } from './util/platform';
