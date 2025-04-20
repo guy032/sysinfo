@@ -1,5 +1,5 @@
 {
-  "name": "systeminformation",
+  "name": "sysinfo",
   "version": "1.0.0",
   "description": "Comprehensive system information collector for Windows machines using WinRM",
   "main": "index.js",
