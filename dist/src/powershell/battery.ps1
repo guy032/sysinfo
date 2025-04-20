@@ -1,29 +1,47 @@
-# Get battery data from various sources
-$batteryData = Get-CimInstance Win32_Battery | Select-Object BatteryStatus, DesignCapacity, DesignVoltage, EstimatedChargeRemaining, DeviceID;
+# This script produces three separate outputs for the battery data, designed capacity, and full charge capacity
 
-# Get additional battery information without try/catch
-$designedCapacity = $null;
-$fullChargedCapacity = $null;
+# Get battery data and output as a single JSON object
 
-# Try to get BatteryStaticData
+# Get battery data
+$batteryData = Get-CimInstance Win32_Battery;
+$batteryInfo = @{
+    "BatteryStatus" = $batteryData.BatteryStatus;
+    "DesignVoltage" = $batteryData.DesignVoltage;
+    "EstimatedChargeRemaining" = $batteryData.EstimatedChargeRemaining;
+    "DeviceID" = $batteryData.DeviceID;
+};
+
+# Get designed capacity
 $ErrorActionPreference = 'SilentlyContinue';
-$batteryStaticData = Get-WmiObject -Class BatteryStaticData -Namespace ROOT/WMI;
-if ($batteryStaticData) {
-    $designedCapacity = $batteryStaticData.DesignedCapacity;
+$designedCapacity = $null;
+try {
+    $batteryStaticData = Get-WmiObject -Class BatteryStaticData -Namespace ROOT\WMI;
+    if ($batteryStaticData) {
+        $designedCapacity = $batteryStaticData.DesignedCapacity;
+        # Also add to battery data
+        $batteryInfo.DesignCapacity = $designedCapacity;
+    }
+} catch {
+    # Silently continue
 }
 
-# Try to get BatteryFullChargedCapacity
-$batteryFullCharged = Get-CimInstance -Class BatteryFullChargedCapacity -Namespace ROOT/WMI -ErrorAction SilentlyContinue;
-if ($batteryFullCharged) {
-    $fullChargedCapacity = $batteryFullCharged.FullChargedCapacity;
+# Get full charged capacity
+$fullChargedCapacity = $null;
+try {
+    $batteryFullCharged = Get-CimInstance -Class BatteryFullChargedCapacity -Namespace ROOT\WMI;
+    if ($batteryFullCharged) {
+        $fullChargedCapacity = $batteryFullCharged.FullChargedCapacity;
+    }
+} catch {
+    # Silently continue
 }
 
 # Create result object
-$result = @{ 
-    BatteryData = $batteryData; 
-    DesignedCapacity = $designedCapacity; 
-    FullChargedCapacity = $fullChargedCapacity;
+$result = @{
+    "BatteryData" = $batteryInfo;
+    "DesignedCapacity" = $designedCapacity;
+    "FullChargedCapacity" = $fullChargedCapacity;
 };
 
 # Output as JSON
-ConvertTo-Json -Compress -InputObject $result;
+ConvertTo-Json -InputObject $result;

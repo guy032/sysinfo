@@ -14,7 +14,7 @@ const password = process.env.WINRM_PASSWORD || process.env.PASSWORD || '';
 // Configure which tests to run
 const testsToRun = {
     gps: false,
-    battery: false,
+    battery: true,
     audio: false,
     bluetooth: false,
     usb: false,
@@ -31,7 +31,7 @@ const testsToRun = {
     users: false,
     cpu: false,
     filesystem: false,
-    files: true,
+    files: false,
     // screenshot: false,
 };
 // Max number of concurrent tasks

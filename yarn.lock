@@ -1681,7 +1681,7 @@ js-yaml@^4.1.0:
 
 js2xmlparser@^3.0.0:
   version "3.0.0"
-  resolved "https://registry.npmjs.org/js2xmlparser/-/js2xmlparser-3.0.0.tgz"
+  resolved "https://registry.yarnpkg.com/js2xmlparser/-/js2xmlparser-3.0.0.tgz#3fb60eaa089c5440f9319f51760ccd07e2499733"
   integrity sha512-CSOkdn0/GhRFwxnipmhXfqJ+FG6+wkWBi46kKSsPx6+j65176ZiQcrCYpg6K8x3iLbO4k3zScBnZ7I/L80dAtw==
   dependencies:
     xmlcreate "^1.0.1"
@@ -1831,7 +1831,7 @@ node-releases@^2.0.19:
 
 nodejs-winrm@^1.1.3:
   version "1.1.3"
-  resolved "https://registry.npmjs.org/nodejs-winrm/-/nodejs-winrm-1.1.3.tgz"
+  resolved "https://registry.yarnpkg.com/nodejs-winrm/-/nodejs-winrm-1.1.3.tgz#89642042f366d4b2f530ecd5fe60931b3463efe1"
   integrity sha512-LyiLnfQJYNi74eb4xaUmtVR0OnSyvm01RcVNP5PKCGz+Z1yWdurPujyCab/80Cvv435GNUlR8sOJJ/Et35fG0A==
   dependencies:
     js2xmlparser "^3.0.0"
@@ -2198,7 +2198,7 @@ safe-regex-test@^1.1.0:
 
 sax@>=0.6.0:
   version "1.4.1"
-  resolved "https://registry.npmjs.org/sax/-/sax-1.4.1.tgz"
+  resolved "https://registry.yarnpkg.com/sax/-/sax-1.4.1.tgz#44cc8988377f126304d3b3fc1010c733b929ef0f"
   integrity sha512-+aWOz7yVScEGoKNd4PA10LZ8sk0A/z5+nXQG5giUO5rprX9jgYsTdov9qCchZiPIZezbZH+jRut8nPodFAX4Jg==
 
 "semver@2 || 3 || 4 || 5":
@@ -2666,7 +2666,7 @@ uri-js@^4.2.2:
 
 uuid@^3.3.2:
   version "3.4.0"
-  resolved "https://registry.npmjs.org/uuid/-/uuid-3.4.0.tgz"
+  resolved "https://registry.yarnpkg.com/uuid/-/uuid-3.4.0.tgz#b23e4358afa8a202fe7a100af1f5f883f02007ee"
   integrity sha512-HjSDRw6gZE5JMggctHBcjVak08+KEVhSIiDzFnT9S9aegmp85S/bReBVTb4QTFaRNptJ9kuYaNhnbNEOkbKb/A==
 
 v8-compile-cache-lib@^3.0.1:
@@ -2754,7 +2754,7 @@ wrappy@1:
 
 xml2js@^0.4.19:
   version "0.4.23"
-  resolved "https://registry.npmjs.org/xml2js/-/xml2js-0.4.23.tgz"
+  resolved "https://registry.yarnpkg.com/xml2js/-/xml2js-0.4.23.tgz#a0c69516752421eb2ac758ee4d4ccf58843eac66"
   integrity sha512-ySPiMjM0+pLDftHgXY4By0uswI3SPKLDw/i3UXbnO8M/p28zqexCUoPmQFrYD+/1BzhGJSs2i1ERWKJAtiLrug==
   dependencies:
     sax ">=0.6.0"
@@ -2762,12 +2762,12 @@ xml2js@^0.4.19:
 
 xmlbuilder@~11.0.0:
   version "11.0.1"
-  resolved "https://registry.npmjs.org/xmlbuilder/-/xmlbuilder-11.0.1.tgz"
+  resolved "https://registry.yarnpkg.com/xmlbuilder/-/xmlbuilder-11.0.1.tgz#be9bae1c8a046e76b31127726347d0ad7002beb3"
   integrity sha512-fDlsI/kFEx7gLvbecc0/ohLG50fugQp8ryHzMTuW9vSa1GJ0XYWKnhsUx7oie3G98+r56aTQIUB4kht42R3JvA==
 
 xmlcreate@^1.0.1:
   version "1.0.2"
-  resolved "https://registry.npmjs.org/xmlcreate/-/xmlcreate-1.0.2.tgz"
+  resolved "https://registry.yarnpkg.com/xmlcreate/-/xmlcreate-1.0.2.tgz#fa6bf762a60a413fb3dd8f4b03c5b269238d308f"
   integrity sha512-Mbe56Dvj00onbnSo9J0qj/XlY5bfN9KidsOnpd5tRCsR3ekB3hyyNU9fGrTdqNT5ZNvv4BsA2TcQlignsZyVcw==
 
 xtend@^4.0.0:
