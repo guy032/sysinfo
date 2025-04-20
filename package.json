@@ -1,22 +1,14 @@
 {
-  "name": "@maprixcom/computer-winrm",
+  "name": "@maprixcom/sysinfo",
   "version": "1.0.0",
   "description": "Comprehensive system information collector for Windows machines using WinRM",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "type": "module",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build:prod": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json",
     "start:dev": "ts-node-dev index.ts",
     "start:prod": "node dist/index.js",
     "debug:dev": "cross-env TS_NODE_CACHE=false ts-node-dev --inspect --ignore '/^src/.*\\.spec\\.ts$/' src/index.ts",

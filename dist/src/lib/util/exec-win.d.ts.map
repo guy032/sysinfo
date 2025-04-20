@@ -1,0 +1,1 @@
+{"version":3,"file":"exec-win.d.ts","sourceRoot":"","sources":["../../../../src/lib/util/exec-win.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,eAAe,CAAC;AAWjD;;;;;;GAMG;AACH,wBAAgB,OAAO,CACrB,GAAG,EAAE,MAAM,EACX,IAAI,GAAE,WAAyB,EAC/B,QAAQ,CAAC,EAAE,CAAC,KAAK,EAAE,KAAK,GAAG,IAAI,EAAE,MAAM,EAAE,MAAM,KAAK,IAAI,GACvD,IAAI,CAaN;AAED,eAAe,OAAO,CAAC"}

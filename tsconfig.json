@@ -1,13 +1,18 @@
 {
   "compilerOptions": {
     "target": "es2022",
-    "module": "node16",
+    "module": "commonjs",
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "lib": ["ES2022"],
-    "moduleResolution": "node16",
+    "moduleResolution": "node",
     "rootDir": ".",
-    "outDir": "build",
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "*": ["src/lib/module/*"]
+    },
     "allowSyntheticDefaultImports": true,
     "importHelpers": true,
     "alwaysStrict": true,
@@ -20,8 +25,10 @@
     "noImplicitAny": false,
     "noImplicitThis": false,
     "strictNullChecks": true,
+    "declaration": true,
+    "declarationMap": true,
     "types": ["node"]
   },
-  "include": ["src/**/*", "src/lib/module/todo", "index.ts"],
+  "include": ["src/**/*", "index.ts"],
   "exclude": ["node_modules"]
 }

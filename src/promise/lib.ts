@@ -39,7 +39,7 @@ import {
   chassis as chassisLib,
   system as systemLib,
 } from '../lib/module/system';
-import { screenshotViaWinRM } from '../lib/module/todo/screenshot';
+// import { screenshotViaWinRM } from '../lib/module/todo/screenshot';
 import { usb as usbLib } from '../lib/module/usb';
 import { users as usersLib } from '../lib/module/users';
 import {
@@ -173,4 +173,4 @@ export const services = createSystemInfoFunction(servicesLib);
 export const files = createSystemInfoFunction(filesLib);
 
 // Screenshot
-export const screenshot = createSystemInfoFunction(screenshotViaWinRM);
+// export const screenshot = createSystemInfoFunction(screenshotViaWinRM);

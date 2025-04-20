@@ -3,11 +3,14 @@
   "exclude": ["node_modules"],
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
-    "baseUrl": "./src",
+    "rootDir": ".",
+    "baseUrl": ".",
     "paths": {
-      "*": ["*"]
+      "@/*": ["src/*"],
+      "*": ["src/lib/module/*"]
     },
-    "sourceMap": false
-  }
+    "sourceMap": false,
+    "declaration": true
+  },
+  "include": ["src/**/*", "index.ts"]
 }

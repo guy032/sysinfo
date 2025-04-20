@@ -1,0 +1,1 @@
+{"version":3,"file":"parse-head.d.ts","sourceRoot":"","sources":["../../../../src/lib/util/parse-head.ts"],"names":[],"mappings":"AAAA;;GAEG;AACH,MAAM,WAAW,eAAe;IAC9B,IAAI,EAAE,MAAM,EAAE,EAAE,CAAC;IACjB,KAAK,EAAE,MAAM,EAAE,CAAC;CACjB;AAED;;;;;;;GAOG;AACH,wBAAgB,SAAS,CAAC,KAAK,EAAE,MAAM,EAAE,EAAE,SAAS,SAAM,EAAE,OAAO,SAAI,GAAG,eAAe,CAwGxF;AAED,eAAe,SAAS,CAAC"}

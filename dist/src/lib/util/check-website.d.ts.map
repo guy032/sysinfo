@@ -1,0 +1,1 @@
+{"version":3,"file":"check-website.d.ts","sourceRoot":"","sources":["../../../../src/lib/util/check-website.ts"],"names":[],"mappings":"AAGA,UAAU,kBAAkB;IAC1B,GAAG,EAAE,MAAM,CAAC;IACZ,UAAU,EAAE,MAAM,CAAC;IACnB,OAAO,EAAE,MAAM,CAAC;IAChB,IAAI,EAAE,MAAM,CAAC;CACd;AAED;;;;;GAKG;AACH,iBAAS,YAAY,CAAC,GAAG,EAAE,MAAM,EAAE,OAAO,SAAO,GAAG,OAAO,CAAC,kBAAkB,CAAC,CAyC9E;AAED,eAAe,YAAY,CAAC"}
