@@ -3,7 +3,6 @@
   "version": "1.0.1",
   "description": "Comprehensive system information collector for Windows machines using WinRM",
   "main": "index.js",
-  "license": "MIT",
   "scripts": {
     "build:prod": "tsc -p tsconfig.build.json",
     "start:dev": "ts-node-dev index.ts",
