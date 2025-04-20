@@ -5,10 +5,13 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "src/powershell"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && npm run copy-ps1",
+    "copy-ps1": "cp -r src/powershell dist/",
+    "prepare": "npm run build",
     "start:dev": "ts-node-dev index.ts",
     "start:prod": "node dist/index.js",
     "debug:dev": "cross-env TS_NODE_CACHE=false ts-node-dev --inspect --ignore '/^src/.*\\.spec\\.ts$/' src/index.ts",
