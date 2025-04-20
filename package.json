@@ -1,8 +1,20 @@
 {
-  "name": "sysinfo",
-  "version": "1.0.1",
+  "name": "@maprixcom/computer-winrm",
+  "version": "1.0.0",
   "description": "Comprehensive system information collector for Windows machines using WinRM",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build:prod": "tsc -p tsconfig.build.json",
     "start:dev": "ts-node-dev index.ts",
