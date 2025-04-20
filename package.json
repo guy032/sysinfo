@@ -1,12 +1,12 @@
 {
-  "name": "computer-winrm",
+  "name": "systeminformation",
   "version": "1.0.0",
   "description": "Comprehensive system information collector for Windows machines using WinRM",
   "main": "index.js",
   "license": "MIT",
   "scripts": {
     "build:prod": "tsc -p tsconfig.build.json",
-    "start:dev": "ts-node-dev src/index.ts",
+    "start:dev": "ts-node-dev index.ts",
     "start:prod": "node dist/index.js",
     "debug:dev": "cross-env TS_NODE_CACHE=false ts-node-dev --inspect --ignore '/^src/.*\\.spec\\.ts$/' src/index.ts",
     "lint": "eslint src/**/*.ts",
@@ -16,6 +16,7 @@
     "@types/node": "^22.14.1",
     "@typescript-eslint/eslint-plugin": "^7.0.2",
     "@typescript-eslint/parser": "^7.0.2",
+    "dotenv": "^16.5.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-import-resolver-typescript": "^3.6.1",
@@ -32,8 +33,6 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "dotenv": "^16.4.7",
-    "nodejs-winrm": "^1.1.3",
-    "systeminformation": "^5.25.11"
+    "nodejs-winrm": "^1.1.3"
   }
 }
