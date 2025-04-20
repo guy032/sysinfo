@@ -22,6 +22,6 @@
     "strictNullChecks": true,
     "types": ["node"]
   },
-  "include": ["src/**/*", "src/lib/module/todo"],
+  "include": ["src/**/*", "src/lib/module/todo", "index.ts"],
   "exclude": ["node_modules"]
 }
