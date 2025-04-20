@@ -1,1 +1,0 @@
-{"version":3,"file":"apple-model.d.ts","sourceRoot":"","sources":["../../src/mapping/apple-model.ts"],"names":[],"mappings":"AAYA;;GAEG;AACH,UAAU,gBAAgB;IACxB,GAAG,EAAE,MAAM,CAAC;IACZ,KAAK,EAAE,MAAM,CAAC;IACd,OAAO,EAAE,MAAM,CAAC;CACjB;AAED,MAAM,CAAC,OAAO,UAAU,aAAa,CAAC,GAAG,EAAE,MAAM,GAAG,gBAAgB,CAqpCnE"}
