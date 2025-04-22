@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && npm run copy-ps1",
+    "test": "ts-node src/test.ts",
     "copy-ps1": "mkdir -p dist/src/powershell && cp -r src/powershell/* dist/src/powershell/",
     "prepare": "npm run build",
     "start:dev": "ts-node-dev index.ts",

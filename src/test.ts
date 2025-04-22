@@ -95,9 +95,9 @@ const password = process.env.WINRM_PASSWORD || process.env.PASSWORD || '';
 // Configure which tests to run
 const testsToRun: TestConfig = {
   gps: false,
-  battery: true,
+  battery: false,
   audio: false,
-  bluetooth: false,
+  bluetooth: true,
   usb: false,
   internet: false,
   printers: false,

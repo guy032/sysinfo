@@ -1,57 +1,32 @@
-# Get params from environment if available
-$skip = if ($env:SKIP) { [int]$env:SKIP } else { 0 }
-$batchSize = if ($env:BATCHSIZE) { [int]$env:BATCHSIZE } else { 100 }
-
-# Retrieve all PNP devices
-$devices = Get-CimInstance Win32_PNPEntity | Where-Object { $_.PNPClass -eq 'Bluetooth' };
+# Retrieve Bluetooth devices with Status 'OK' and a valid DeviceID pattern
+$devices = Get-CimInstance Win32_PnPEntity -Filter 'PNPClass=''Bluetooth'' AND Status=''OK''';
+$filteredDevices = $devices | Where-Object { $_.DeviceID -match 'DEV_([0-9A-F]+)' };
 
 # Create array for results
-$allResults = @();
+$results = @();
 
 # Process each device
-foreach ($device in $devices) {
-  # Add the device to results with all properties
-  $allResults += [PSCustomObject]@{
-    Caption = $device.Caption;
-    Description = $device.Description;
-    InstallDate = $device.InstallDate;
-    Name = $device.Name;
-    Status = $device.Status;
-    Availability = $device.Availability;
-    ConfigManagerErrorCode = $device.ConfigManagerErrorCode;
-    ConfigManagerUserConfig = $device.ConfigManagerUserConfig;
-    CreationClassName = $device.CreationClassName;
-    DeviceID = $device.DeviceID;
-    ErrorCleared = $device.ErrorCleared;
-    ErrorDescription = $device.ErrorDescription;
-    LastErrorCode = $device.LastErrorCode;
-    PNPDeviceID = $device.PNPDeviceID;
-    PowerManagementCapabilities = $device.PowerManagementCapabilities;
-    PowerManagementSupported = $device.PowerManagementSupported;
-    StatusInfo = $device.StatusInfo;
-    SystemCreationClassName = $device.SystemCreationClassName;
-    SystemName = $device.SystemName;
-    ClassGuid = $device.ClassGuid;
-    CompatibleID = $device.CompatibleID;
-    HardwareID = $device.HardwareID;
-    Manufacturer = $device.Manufacturer;
-    PNPClass = $device.PNPClass;
-    Present = $device.Present;
-    Service = $device.Service;
-    PSComputerName = $device.PSComputerName;
-  };
+foreach ($device in $filteredDevices) {
+    # Extract MAC address from DeviceID
+    ($device.DeviceID -match 'DEV_([0-9A-F]+)') | Out-Null;
+    $macAddress = ($matches[1] -replace '(.{2})(?!$)', '$1:');
+    
+    # Encode device name properly - Use explicit UTF8 encoding for all characters
+    $nameBytes = [System.Text.Encoding]::UTF8.GetBytes($device.Name);
+    $hexName = '';
+    foreach ($byte in $nameBytes) {
+        $hexName += $byte.ToString('X2');
+    }
+    
+    # Add the device to results with selected properties
+    $results += [PSCustomObject]@{
+        DeviceNameHex = $hexName;
+        MacAddress = $macAddress;
+    };
 }
 
-# Apply batching to results
-$batchedResults = $allResults | Select-Object -Skip $skip -First $batchSize;
-
-# Add metadata about the batch
-$response = @{
-  Items = $batchedResults;
-  TotalCount = $allResults.Count;
-  Skip = $skip;
-  BatchSize = $batchSize;
-};
+# Remove duplicates by grouping on both DeviceNameHex and MacAddress
+$uniqueResults = $results | Group-Object -Property DeviceNameHex,MacAddress | ForEach-Object { $_.Group[0] };
 
 # Output as JSON
-ConvertTo-Json -InputObject $response -Depth 10 -Compress;
+ConvertTo-Json -InputObject $uniqueResults -Depth 10 -Compress;

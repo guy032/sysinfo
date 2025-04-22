@@ -258,54 +258,43 @@ export function bluetoothDevices(
   const platform: PlatformFlags = getPlatformFlagsFromOptions(options);
 
   /**
-   * Helper function to fetch all Bluetooth devices with pagination
+   * Helper function to fetch Bluetooth devices
    */
-  async function fetchAllDevices(): Promise<any[]> {
-    const allDevices: any[] = [];
-    let skip = 0;
-    const batchSize = 100;
-    let totalCount = 0;
-    let hasMoreData = true;
+  async function fetchDevices(): Promise<any[]> {
+    try {
+      // Get the script path
+      const scriptPath = getBluetoothScriptPath();
 
-    // Keep fetching until we have all devices
-    while (hasMoreData) {
-      try {
-        // Get the script path
-        const scriptPath = getBluetoothScriptPath();
+      // Execute the script
+      const result = await util.executeScript(scriptPath, options);
 
-        // Execute the script with parameters properly passed as separate args
-        options.batch = {
-          skip,
-          batchSize,
-        };
-        const batchResult = await util.executeScript(scriptPath, options);
+      // Parse the results
+      const rawDevices = JSON.parse(result.toString());
 
-        // Parse the batch results
-        const batchData = JSON.parse(batchResult.toString());
+      // Convert hex-encoded device names back to strings
+      return Array.isArray(rawDevices)
+        ? rawDevices.map((device) => {
+            if (device.DeviceNameHex) {
+              // Convert hex string back to regular string
+              const bytes = new Uint8Array(
+                device.DeviceNameHex.match(/.{1,2}/g).map((byte) => Number.parseInt(byte, 16)),
+              );
+              const deviceName = new TextDecoder('utf8').decode(bytes);
 
-        // Extract the device items and metadata
-        const items = batchData.Items || [];
+              return {
+                DeviceName: deviceName,
+                MacAddress: device.MacAddress,
+              };
+            }
 
-        totalCount = batchData.TotalCount || 0;
+            return device;
+          })
+        : [];
+    } catch (error) {
+      console.error('Error fetching bluetooth devices:', error);
 
-        // Add devices from this batch to our collection
-        if (Array.isArray(items)) {
-          allDevices.push(...items);
-        }
-
-        // Determine if we need to fetch more batches
-        skip += batchSize;
-
-        if (skip >= totalCount || items.length === 0) {
-          hasMoreData = false;
-        }
-      } catch (error) {
-        console.error(`Error fetching batch starting at ${skip}:`, error);
-        hasMoreData = false; // Stop on error
-      }
+      return [];
     }
-
-    return allDevices;
   }
 
   return new Promise((resolve) => {
@@ -460,7 +449,7 @@ export function bluetoothDevices(
         });
       } else if (platform._windows) {
         try {
-          const devices = await fetchAllDevices();
+          const devices = await fetchDevices();
 
           if (callback) {
             callback(devices);
