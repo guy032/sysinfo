@@ -1,0 +1,983 @@
+{
+  "Children": [
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\.oracle_jre_usage",
+      "FileCount": null,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": ".oracle_jre_usage",
+      "Files": {
+        "Name": "8e549d8ad9cd8b90.timestamp",
+        "Length": 70,
+        "LastAccessTime": 1668948983619,
+        "LastWriteTime": 1668948983619,
+        "CreationTime": 1648630691908,
+        "Type": "timestamp"
+      },
+      "SizeBytes": 70
+    },
+    {
+      "Children": [
+        {
+          "Children": [
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\Adobe",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Adobe",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\Application Data",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Application Data",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\CEF",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "CEF",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\Comms",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Comms",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\ConnectedDevicesPlatform",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "ConnectedDevicesPlatform",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\D3DSCache",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "D3DSCache",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\Dell",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Dell",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\Google",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Google",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\History",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "History",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\Microsoft",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Microsoft",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\Packages",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Packages",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\PlaceholderTileLogoFolder",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "PlaceholderTileLogoFolder",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\Publishers",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Publishers",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\SquirrelTemp",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "SquirrelTemp",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\Temp",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Temp",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\Temporary Internet Files",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Temporary Internet Files",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\VirtualStore",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "VirtualStore",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Local\\Wondershare",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Wondershare",
+              "Files": [],
+              "SizeBytes": 0
+            }
+          ],
+          "Path": "C:\\Users\\Visitor\\AppData\\Local",
+          "FileCount": null,
+          "TotalDirCount": 18,
+          "Type": "Directory",
+          "Name": "Local",
+          "Files": {
+            "Name": "oobelibMkey.log",
+            "Length": 0,
+            "LastAccessTime": 1668942295127,
+            "LastWriteTime": 1668942295127,
+            "CreationTime": 1668942295127,
+            "Type": "log"
+          },
+          "SizeBytes": 0
+        },
+        {
+          "Children": [
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\LocalLow\\Intel",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Intel",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\LocalLow\\Microsoft",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Microsoft",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\LocalLow\\Sun",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Sun",
+              "Files": [],
+              "SizeBytes": 0
+            }
+          ],
+          "Path": "C:\\Users\\Visitor\\AppData\\LocalLow",
+          "FileCount": 0,
+          "TotalDirCount": 3,
+          "Type": "Directory",
+          "Name": "LocalLow",
+          "Files": {},
+          "SizeBytes": 0
+        },
+        {
+          "Children": [
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Roaming\\Adobe",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Adobe",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Roaming\\AnyDesk",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "AnyDesk",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Roaming\\com.adobe.dunamis",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "com.adobe.dunamis",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Roaming\\Logishrd",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Logishrd",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Roaming\\maprint",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "maprint",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Roaming\\Microsoft",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Microsoft",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Roaming\\prinity-printer",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "prinity-printer",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Roaming\\Sun",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Sun",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Roaming\\Teams",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Teams",
+              "Files": [],
+              "SizeBytes": 0
+            },
+            {
+              "Children": [],
+              "Path": "C:\\Users\\Visitor\\AppData\\Roaming\\Wondershare",
+              "FileCount": 0,
+              "TotalDirCount": 0,
+              "Type": "Directory",
+              "Name": "Wondershare",
+              "Files": [],
+              "SizeBytes": 0
+            }
+          ],
+          "Path": "C:\\Users\\Visitor\\AppData\\Roaming",
+          "FileCount": 0,
+          "TotalDirCount": 10,
+          "Type": "Directory",
+          "Name": "Roaming",
+          "Files": {},
+          "SizeBytes": 0
+        }
+      ],
+      "Path": "C:\\Users\\Visitor\\AppData",
+      "FileCount": 0,
+      "TotalDirCount": 3,
+      "Type": "Directory",
+      "Name": "AppData",
+      "Files": {},
+      "SizeBytes": 0
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\Application Data",
+      "FileCount": 0,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "Application Data",
+      "Files": {},
+      "SizeBytes": 0
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\Contacts",
+      "FileCount": null,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "Contacts",
+      "Files": {
+        "Name": "desktop.ini",
+        "Length": 412,
+        "LastAccessTime": 1745389785767,
+        "LastWriteTime": 1690697962837,
+        "CreationTime": 1648630556823,
+        "Type": "ini"
+      },
+      "SizeBytes": 412
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\Cookies",
+      "FileCount": 0,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "Cookies",
+      "Files": {},
+      "SizeBytes": 0
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\Desktop",
+      "FileCount": 5,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "Desktop",
+      "Files": [
+        {
+          "Name": "desktop.ini",
+          "Length": 282,
+          "LastAccessTime": 1745389785767,
+          "LastWriteTime": 1690697962828,
+          "CreationTime": 1648630556815,
+          "Type": "ini"
+        },
+        {
+          "Name": "Google Docs.lnk",
+          "Length": 1998,
+          "LastAccessTime": 1745389800232,
+          "LastWriteTime": 1745290243605,
+          "CreationTime": 1648630545748,
+          "Type": "lnk"
+        },
+        {
+          "Name": "Google Sheets.lnk",
+          "Length": 2010,
+          "LastAccessTime": 1745389800192,
+          "LastWriteTime": 1745290243608,
+          "CreationTime": 1648630545748,
+          "Type": "lnk"
+        },
+        {
+          "Name": "Google Slides.lnk",
+          "Length": 2010,
+          "LastAccessTime": 1745389800146,
+          "LastWriteTime": 1745290243612,
+          "CreationTime": 1648630545749,
+          "Type": "lnk"
+        },
+        {
+          "Name": "Microsoft Teams.lnk",
+          "Length": 2372,
+          "LastAccessTime": 1745389799984,
+          "LastWriteTime": 1648630724391,
+          "CreationTime": 1648630724381,
+          "Type": "lnk"
+        }
+      ],
+      "SizeBytes": 8672
+    },
+    {
+      "Children": [
+        {
+          "Children": {},
+          "Path": "C:\\Users\\Visitor\\Documents\\My Music",
+          "FileCount": 0,
+          "TotalDirCount": 0,
+          "Type": "Directory",
+          "Name": "My Music",
+          "Files": {},
+          "SizeBytes": 0
+        },
+        {
+          "Children": {},
+          "Path": "C:\\Users\\Visitor\\Documents\\My Pictures",
+          "FileCount": 0,
+          "TotalDirCount": 0,
+          "Type": "Directory",
+          "Name": "My Pictures",
+          "Files": {},
+          "SizeBytes": 0
+        },
+        {
+          "Children": {},
+          "Path": "C:\\Users\\Visitor\\Documents\\My Videos",
+          "FileCount": 0,
+          "TotalDirCount": 0,
+          "Type": "Directory",
+          "Name": "My Videos",
+          "Files": {},
+          "SizeBytes": 0
+        },
+        {
+          "Children": {},
+          "Path": "C:\\Users\\Visitor\\Documents\\Visual Studio 2017",
+          "FileCount": 0,
+          "TotalDirCount": 0,
+          "Type": "Directory",
+          "Name": "Visual Studio 2017",
+          "Files": {},
+          "SizeBytes": 0
+        },
+        {
+          "Children": {},
+          "Path": "C:\\Users\\Visitor\\Documents\\Visual Studio 2019",
+          "FileCount": 0,
+          "TotalDirCount": 0,
+          "Type": "Directory",
+          "Name": "Visual Studio 2019",
+          "Files": {},
+          "SizeBytes": 0
+        }
+      ],
+      "Path": "C:\\Users\\Visitor\\Documents",
+      "FileCount": null,
+      "TotalDirCount": 5,
+      "Type": "Directory",
+      "Name": "Documents",
+      "Files": {
+        "Name": "desktop.ini",
+        "Length": 402,
+        "LastAccessTime": 1745389785767,
+        "LastWriteTime": 1690697963078,
+        "CreationTime": 1648630556902,
+        "Type": "ini"
+      },
+      "SizeBytes": 402
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\Downloads",
+      "FileCount": null,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "Downloads",
+      "Files": {
+        "Name": "desktop.ini",
+        "Length": 282,
+        "LastAccessTime": 1745389785767,
+        "LastWriteTime": 1690697962985,
+        "CreationTime": 1648630557058,
+        "Type": "ini"
+      },
+      "SizeBytes": 282
+    },
+    {
+      "Children": {
+        "Children": {},
+        "Path": "C:\\Users\\Visitor\\Favorites\\Links",
+        "FileCount": null,
+        "TotalDirCount": 0,
+        "Type": "Directory",
+        "Name": "Links",
+        "Files": {
+          "Name": "desktop.ini",
+          "Length": 80,
+          "LastAccessTime": 1745389799630,
+          "LastWriteTime": 1690697944878,
+          "CreationTime": 1648630555910,
+          "Type": "ini"
+        },
+        "SizeBytes": 80
+      },
+      "Path": "C:\\Users\\Visitor\\Favorites",
+      "FileCount": 2,
+      "TotalDirCount": 8,
+      "Type": "Directory",
+      "Name": "Favorites",
+      "Files": [
+        {
+          "Name": "Bing.url",
+          "Length": 208,
+          "LastAccessTime": 1745389800579,
+          "LastWriteTime": 1690697944873,
+          "CreationTime": 1648630555885,
+          "Type": "url"
+        },
+        {
+          "Name": "desktop.ini",
+          "Length": 402,
+          "LastAccessTime": 1745389785768,
+          "LastWriteTime": 1690697962846,
+          "CreationTime": 1648630556838,
+          "Type": "ini"
+        }
+      ],
+      "SizeBytes": 610
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\IntelGraphicsProfiles",
+      "FileCount": 3,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "IntelGraphicsProfiles",
+      "Files": [
+        {
+          "Name": "Brighten Video.man.igpi",
+          "Length": 8436,
+          "LastAccessTime": 1690697937410,
+          "LastWriteTime": 1690697937410,
+          "CreationTime": 1648630550869,
+          "Type": "igpi"
+        },
+        {
+          "Name": "Darken Video.man.igpi",
+          "Length": 8436,
+          "LastAccessTime": 1690697937420,
+          "LastWriteTime": 1690697937420,
+          "CreationTime": 1648630550933,
+          "Type": "igpi"
+        },
+        {
+          "Name": "Enhance Video Colors.man.igpi",
+          "Length": 8436,
+          "LastAccessTime": 1690697937437,
+          "LastWriteTime": 1690697937437,
+          "CreationTime": 1648630550981,
+          "Type": "igpi"
+        }
+      ],
+      "SizeBytes": 25308
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\Links",
+      "FileCount": 3,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "Links",
+      "Files": [
+        {
+          "Name": "desktop.ini",
+          "Length": 504,
+          "LastAccessTime": 1745389785768,
+          "LastWriteTime": 1690697963179,
+          "CreationTime": 1648630557307,
+          "Type": "ini"
+        },
+        {
+          "Name": "Desktop.lnk",
+          "Length": 502,
+          "LastAccessTime": 1745389800691,
+          "LastWriteTime": 1690697963147,
+          "CreationTime": 1648630557401,
+          "Type": "lnk"
+        },
+        {
+          "Name": "Downloads.lnk",
+          "Length": 931,
+          "LastAccessTime": 1745389800718,
+          "LastWriteTime": 1690697963165,
+          "CreationTime": 1648630557434,
+          "Type": "lnk"
+        }
+      ],
+      "SizeBytes": 1937
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\Local Settings",
+      "FileCount": 0,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "Local Settings",
+      "Files": {},
+      "SizeBytes": 0
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\Music",
+      "FileCount": null,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "Music",
+      "Files": {
+        "Name": "desktop.ini",
+        "Length": 504,
+        "LastAccessTime": 1745389785768,
+        "LastWriteTime": 1690697962982,
+        "CreationTime": 1648630556880,
+        "Type": "ini"
+      },
+      "SizeBytes": 504
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\My Documents",
+      "FileCount": 0,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "My Documents",
+      "Files": {},
+      "SizeBytes": 0
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\NetHood",
+      "FileCount": 0,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "NetHood",
+      "Files": {},
+      "SizeBytes": 0
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\OneDrive",
+      "FileCount": null,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "OneDrive",
+      "Files": {
+        "Name": "desktop.ini",
+        "Length": 98,
+        "LastAccessTime": 1745389785768,
+        "LastWriteTime": 1648632611055,
+        "CreationTime": 1648632488826,
+        "Type": "ini"
+      },
+      "SizeBytes": 98
+    },
+    {
+      "Children": [
+        {
+          "Children": {},
+          "Path": "C:\\Users\\Visitor\\Pictures\\Camera Roll",
+          "FileCount": null,
+          "TotalDirCount": 0,
+          "Type": "Directory",
+          "Name": "Camera Roll",
+          "Files": {
+            "Name": "desktop.ini",
+            "Length": 190,
+            "LastAccessTime": 1745389799722,
+            "LastWriteTime": 1648630659076,
+            "CreationTime": 1648630659073,
+            "Type": "ini"
+          },
+          "SizeBytes": 190
+        },
+        {
+          "Children": {},
+          "Path": "C:\\Users\\Visitor\\Pictures\\Saved Pictures",
+          "FileCount": null,
+          "TotalDirCount": 0,
+          "Type": "Directory",
+          "Name": "Saved Pictures",
+          "Files": {
+            "Name": "desktop.ini",
+            "Length": 190,
+            "LastAccessTime": 1745389799646,
+            "LastWriteTime": 1648630660222,
+            "CreationTime": 1648630660222,
+            "Type": "ini"
+          },
+          "SizeBytes": 190
+        }
+      ],
+      "Path": "C:\\Users\\Visitor\\Pictures",
+      "FileCount": null,
+      "TotalDirCount": 2,
+      "Type": "Directory",
+      "Name": "Pictures",
+      "Files": {
+        "Name": "desktop.ini",
+        "Length": 504,
+        "LastAccessTime": 1745389785768,
+        "LastWriteTime": 1690697962841,
+        "CreationTime": 1648630556807,
+        "Type": "ini"
+      },
+      "SizeBytes": 504
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\PrintHood",
+      "FileCount": 0,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "PrintHood",
+      "Files": {},
+      "SizeBytes": 0
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\Recent",
+      "FileCount": 0,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "Recent",
+      "Files": {},
+      "SizeBytes": 0
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\Saved Games",
+      "FileCount": null,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "Saved Games",
+      "Files": {
+        "Name": "desktop.ini",
+        "Length": 282,
+        "LastAccessTime": 1745389785769,
+        "LastWriteTime": 1690697963127,
+        "CreationTime": 1648630557315,
+        "Type": "ini"
+      },
+      "SizeBytes": 282
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\Searches",
+      "FileCount": 4,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "Searches",
+      "Files": [
+        {
+          "Name": "desktop.ini",
+          "Length": 524,
+          "LastAccessTime": 1745389785769,
+          "LastWriteTime": 1690697962970,
+          "CreationTime": 1648630557047,
+          "Type": "ini"
+        },
+        {
+          "Name": "Everywhere.search-ms",
+          "Length": 248,
+          "LastAccessTime": 1745389801021,
+          "LastWriteTime": 1648630557361,
+          "CreationTime": 1648630557360,
+          "Type": "search-ms"
+        },
+        {
+          "Name": "Indexed Locations.search-ms",
+          "Length": 248,
+          "LastAccessTime": 1745389800926,
+          "LastWriteTime": 1648630557323,
+          "CreationTime": 1648630557323,
+          "Type": "search-ms"
+        },
+        {
+          "Name": "winrt--{S-1-5-21-1932880797-1421167697-1230191668-1011}-.searchconnector-ms",
+          "Length": 859,
+          "LastAccessTime": 1745389800841,
+          "LastWriteTime": 1668941669507,
+          "CreationTime": 1668941669494,
+          "Type": "searchconnector-ms"
+        }
+      ],
+      "SizeBytes": 1879
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\SendTo",
+      "FileCount": 0,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "SendTo",
+      "Files": {},
+      "SizeBytes": 0
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\Start Menu",
+      "FileCount": 0,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "Start Menu",
+      "Files": {},
+      "SizeBytes": 0
+    },
+    {
+      "Children": {},
+      "Path": "C:\\Users\\Visitor\\Templates",
+      "FileCount": 0,
+      "TotalDirCount": 0,
+      "Type": "Directory",
+      "Name": "Templates",
+      "Files": {},
+      "SizeBytes": 0
+    },
+    {
+      "Children": {
+        "Children": {},
+        "Path": "C:\\Users\\Visitor\\Videos\\Captures",
+        "FileCount": null,
+        "TotalDirCount": 0,
+        "Type": "Directory",
+        "Name": "Captures",
+        "Files": {
+          "Name": "desktop.ini",
+          "Length": 190,
+          "LastAccessTime": 1745389799654,
+          "LastWriteTime": 1648796943553,
+          "CreationTime": 1648796943551,
+          "Type": "ini"
+        },
+        "SizeBytes": 190
+      },
+      "Path": "C:\\Users\\Visitor\\Videos",
+      "FileCount": null,
+      "TotalDirCount": 8,
+      "Type": "Directory",
+      "Name": "Videos",
+      "Files": {
+        "Name": "desktop.ini",
+        "Length": 504,
+        "LastAccessTime": 1745389785769,
+        "LastWriteTime": 1690697962853,
+        "CreationTime": 1648630556680,
+        "Type": "ini"
+      },
+      "SizeBytes": 504
+    }
+  ],
+  "Path": "C:\\Users\\Visitor",
+  "FileCount": 6,
+  "TotalDirCount": 25,
+  "Type": "Directory",
+  "Name": "Visitor",
+  "Files": [
+    {
+      "Name": "NTUSER.DAT",
+      "Length": 2359296,
+      "LastAccessTime": 1745356172303,
+      "LastWriteTime": 1745290243722,
+      "CreationTime": 1740352008871,
+      "Type": "DAT"
+    },
+    {
+      "Name": "ntuser.dat.LOG1",
+      "Length": 32768,
+      "LastAccessTime": 1740352009038,
+      "LastWriteTime": 1740352009038,
+      "CreationTime": 1740352009038,
+      "Type": "LOG1"
+    },
+    {
+      "Name": "ntuser.dat.LOG2",
+      "Length": 0,
+      "LastAccessTime": 1740352009038,
+      "LastWriteTime": 1740352009038,
+      "CreationTime": 1740352009038,
+      "Type": "LOG2"
+    },
+    {
+      "Name": "NTUSER.DAT{68ff81b0-f23a-11ef-867c-010101010000}.TM.blf",
+      "Length": 65536,
+      "LastAccessTime": 1740352009227,
+      "LastWriteTime": 1740352009227,
+      "CreationTime": 1740352009038,
+      "Type": "blf"
+    },
+    {
+      "Name": "NTUSER.DAT{68ff81b0-f23a-11ef-867c-010101010000}.TMContainer00000000000000000001.regtrans-ms",
+      "Length": 524288,
+      "LastAccessTime": 1745356172302,
+      "LastWriteTime": 1740352009051,
+      "CreationTime": 1740352009050,
+      "Type": "regtrans-ms"
+    },
+    {
+      "Name": "NTUSER.DAT{68ff81b0-f23a-11ef-867c-010101010000}.TMContainer00000000000000000002.regtrans-ms",
+      "Length": 524288,
+      "LastAccessTime": 1740352009051,
+      "LastWriteTime": 1740352009051,
+      "CreationTime": 1740352009051,
+      "Type": "regtrans-ms"
+    }
+  ],
+  "SizeBytes": 3506176
+}

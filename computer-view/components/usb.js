@@ -16,7 +16,6 @@ function createUsbDevicesGrid(usbDevices) {
     }
     
     return `
-        <div class="section-title">USB Devices (${usbDevices.length} items)</div>
         <div class="usb-devices-grid">
             ${usbDevices.map(device => createUsbDeviceCard(device)).join('')}
         </div>

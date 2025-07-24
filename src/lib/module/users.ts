@@ -19,6 +19,8 @@ export interface UserInfo {
   sessionId?: string;
   sessionDetails?: SessionDetails;
   allSessions?: UserSession[];
+  localUserDetails?: LocalUserDetails;
+  loggedIn?: boolean; // Whether the user is currently logged in
 }
 
 export interface WhoUserInfo {
@@ -92,6 +94,22 @@ export interface LoggedOnUserInfo {
 export interface FormattedDate {
   isoString: string;
   formatted: string;
+}
+
+export interface LocalUserDetails {
+  accountExpires?: string;
+  description?: string;
+  enabled?: boolean;
+  fullName?: string;
+  passwordChangeableDate?: string;
+  passwordExpires?: string;
+  passwordLastSet?: string;
+  passwordRequired?: boolean;
+  sid?: string;
+  userMayChangePassword?: boolean;
+  lastLogon?: string;
+  name?: string;
+  [key: string]: any;
 }
 
 /**
@@ -774,6 +792,7 @@ export function users(
           const batchSize = 250; // Number of items per batch
           let allSessions: any[] = [];
           let allLoggedOnUsers: any[] = [];
+          let localUserData: any[] = [];
 
           const getSessionsBatched = (skip: number): Promise<void> =>
             new Promise((resolveSession) => {
@@ -833,10 +852,22 @@ export function users(
             // Get logoff events from Windows Event Log
             const logoffEventsCmd = `try { $events = Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4624,4634,4647} -MaxEvents 100 -ErrorAction Stop | Select-Object TimeCreated, Id, Properties; $logonEvents = @{}; $logoffEvents = @{}; foreach ($event in $events) { try { if ($event.Id -eq 4624) { $logonId = $event.Properties[7].Value.ToString(); $targetUser = $event.Properties[5].Value.ToString(); if (-not $logonEvents.ContainsKey($logonId)) { $logonEvents[$logonId] = @{ TimeCreated = $event.TimeCreated; UserName = $targetUser } } } elseif ($event.Id -eq 4634 -or $event.Id -eq 4647) { $logonId = $event.Properties[3].Value.ToString(); $targetUser = $event.Properties[1].Value.ToString(); $logoffEvents[$logonId] = @{ TimeCreated = $event.TimeCreated; UserName = $targetUser } } } catch { continue } }; $results = @(); foreach ($logonId in $logonEvents.Keys) { $entry = @{ LogonId = $logonId; UserName = $logonEvents[$logonId].UserName; LogonTime = $logonEvents[$logonId].TimeCreated; LogoffTime = if ($logoffEvents.ContainsKey($logonId)) { $logoffEvents[$logonId].TimeCreated } else { $null } }; $results += $entry }; foreach ($logonId in $logoffEvents.Keys) { if (-not $logonEvents.ContainsKey($logonId)) { $entry = @{ LogonId = $logonId; UserName = $logoffEvents[$logonId].UserName; LogonTime = $null; LogoffTime = $logoffEvents[$logonId].TimeCreated }; $results += $entry } }; $results | ConvertTo-Json -Compress } catch { Write-Output '[]' }`;
 
+            // Add command to get local user data
+            const localUserCmd = `Get-LocalUser | Select-Object * | ConvertTo-Json -Compress`;
+
             Promise.all([
               util.powerShell(sessionDetailsCmd, options),
               util.powerShell(logoffEventsCmd, options),
-            ]).then(([sessionDetailsData, logoffEventsData]) => {
+              util.powerShell(localUserCmd, options),
+            ]).then(([sessionDetailsData, logoffEventsData, localUsersData]) => {
+              // Process local user data
+              try {
+                const localUsers = JSON.parse(localUsersData.toString());
+                localUserData = Array.isArray(localUsers) ? localUsers : [localUsers];
+              } catch {
+                localUserData = [];
+              }
+
               // Now get the explorer processes (usually just one)
               const explorerCmd =
                 '$process = (Get-CimInstance Win32_Process -Filter "name = \'explorer.exe\'"); Invoke-CimMethod -InputObject $process[0] -MethodName GetOwner | select user, domain | ConvertTo-Json -Compress; get-process -name explorer | select-object sessionid | ConvertTo-Json -Compress';
@@ -988,6 +1019,28 @@ export function users(
                         if (loggedons[id] && sessionData && sessionData.startTime) {
                           loggedons[id].dateTime = parseMsJsonDate(sessionData.startTime);
                         }
+                      }
+                    }
+
+                    // Create a map of local user details by username
+                    const localUserMap: Record<string, LocalUserDetails> = {};
+
+                    for (const localUser of localUserData) {
+                      if (localUser && localUser.Name) {
+                        localUserMap[localUser.Name.toLowerCase()] = {
+                          accountExpires: localUser.AccountExpires,
+                          description: localUser.Description,
+                          enabled: localUser.Enabled,
+                          fullName: localUser.FullName,
+                          passwordChangeableDate: localUser.PasswordChangeableDate,
+                          passwordExpires: localUser.PasswordExpires,
+                          passwordLastSet: localUser.PasswordLastSet,
+                          passwordRequired: localUser.PasswordRequired,
+                          sid: localUser.SID,
+                          userMayChangePassword: localUser.UserMayChangePassword,
+                          lastLogon: localUser.LastLogon,
+                          name: localUser.Name,
+                        };
                       }
                     }
 
@@ -1167,6 +1220,13 @@ export function users(
                         }
                       }
 
+                      // Find matching local user details
+                      const localUserDetails =
+                        localUserData.find(
+                          (lu) =>
+                            lu && lu.Name && lu.Name.toLowerCase() === user.user.toLowerCase(),
+                        ) || undefined;
+
                       result.push({
                         user: user.user,
                         tty: user.tty,
@@ -1193,6 +1253,8 @@ export function users(
                                 logonTypeDescription: '',
                               },
                         allSessions: allUserSessions,
+                        localUserDetails,
+                        loggedIn: dateTime !== '',
                       });
                     }
                   }
@@ -1214,6 +1276,13 @@ export function users(
                       const timeStr = now.toISOString().slice(11, 19);
 
                       for (const user of queryUsers) {
+                        // Find matching local user details
+                        const localUserDetails =
+                          localUserData.find(
+                            (lu) =>
+                              lu && lu.Name && lu.Name.toLowerCase() === user.user.toLowerCase(),
+                          ) || undefined;
+
                         result.push({
                           user: user.user,
                           tty: user.tty,
@@ -1230,6 +1299,71 @@ export function users(
                             logonTypeDescription: '',
                           },
                           allSessions: [],
+                          localUserDetails: localUserDetails
+                            ? {
+                                accountExpires: localUserDetails.AccountExpires,
+                                description: localUserDetails.Description,
+                                enabled: localUserDetails.Enabled,
+                                fullName: localUserDetails.FullName,
+                                passwordChangeableDate: localUserDetails.PasswordChangeableDate,
+                                passwordExpires: localUserDetails.PasswordExpires,
+                                passwordLastSet: localUserDetails.PasswordLastSet,
+                                passwordRequired: localUserDetails.PasswordRequired,
+                                sid: localUserDetails.SID,
+                                userMayChangePassword: localUserDetails.UserMayChangePassword,
+                                lastLogon: localUserDetails.LastLogon,
+                                name: localUserDetails.Name,
+                              }
+                            : undefined,
+                          loggedIn: false,
+                        });
+                      }
+                    }
+                  }
+
+                  // After processing logged-in users, add all local users that weren't included yet
+                  if (localUserData && localUserData.length > 0) {
+                    // Create a set of usernames already in the result
+                    const existingUsers = new Set(result.map((user) => user.user.toLowerCase()));
+
+                    // Add local users that aren't in the result yet
+                    for (const localUser of localUserData) {
+                      if (
+                        localUser &&
+                        localUser.Name &&
+                        !existingUsers.has(localUser.Name.toLowerCase())
+                      ) {
+                        result.push({
+                          user: localUser.Name,
+                          tty: '',
+                          date: '',
+                          time: '',
+                          ip: '',
+                          command: '',
+                          sessionId: '',
+                          sessionDetails: {
+                            domain: '',
+                            logonTime: '',
+                            authPackage: '',
+                            logonType: '',
+                            logonTypeDescription: '',
+                          },
+                          allSessions: [],
+                          localUserDetails: {
+                            accountExpires: localUser.AccountExpires,
+                            description: localUser.Description,
+                            enabled: localUser.Enabled,
+                            fullName: localUser.FullName,
+                            passwordChangeableDate: localUser.PasswordChangeableDate,
+                            passwordExpires: localUser.PasswordExpires,
+                            passwordLastSet: localUser.PasswordLastSet,
+                            passwordRequired: localUser.PasswordRequired,
+                            sid: localUser.SID,
+                            userMayChangePassword: localUser.UserMayChangePassword,
+                            lastLogon: localUser.LastLogon,
+                            name: localUser.Name,
+                          },
+                          loggedIn: false,
                         });
                       }
                     }

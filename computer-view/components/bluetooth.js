@@ -47,8 +47,6 @@ function createBluetoothDevicesGrid(devices) {
     
     return `
         <div class="section bluetooth-section">
-            <div class="section-title">Bluetooth Devices (${devices.length} ${devices.length === 1 ? 'item' : 'items'})</div>
-            
             <div class="bluetooth-devices-grid">
                 ${devices.map(device => {
                     // Extract device data with fallbacks - updated to handle the specific JSON structure

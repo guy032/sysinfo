@@ -16,7 +16,6 @@ function createAudioDevicesGrid(audioDevices) {
     }
     
     return `
-        <div class="section-title">Audio Devices (${audioDevices.length} items)</div>
         <div class="audio-devices-grid">
             ${audioDevices.map(device => createAudioDeviceCard(device)).join('')}
         </div>

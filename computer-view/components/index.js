@@ -14,6 +14,8 @@ import { createUsbDevicesGrid } from './usb.js';
 import { createPrintersGrid } from './printer.js';
 import { createAudioDevicesGrid } from './audio.js';
 import { createBluetoothDevicesGrid } from './bluetooth.js';
+import { createSystemCard } from './systemcard.js';
+import { createCondensedUserCard } from './condensed-user-card.js';
 
 // Export all components as a single module
 export {
@@ -39,4 +41,6 @@ export {
     createAudioDevicesGrid,
     createBluetoothDevicesGrid,
     getVendorFromBSSID,
+    createSystemCard,
+    createCondensedUserCard,
 }; 

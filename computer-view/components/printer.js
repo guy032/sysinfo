@@ -24,7 +24,6 @@ function createPrintersGrid(printers) {
     });
     
     return `
-        <div class="section-title">Printers (${printers.length} items)</div>
         <div class="printers-grid">
             ${sortedPrinters.map(printer => createPrinterCard(printer)).join('')}
         </div>

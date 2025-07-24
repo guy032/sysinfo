@@ -10,6 +10,7 @@ import {
     createOSCard,
     createTimeCard,
     createUsersCard,
+    createCondensedUserCard,
     createNetworkInterfacesCard,
     createWifiRadarVisualization,
     createNetworkConnectionsVisual,
@@ -17,10 +18,12 @@ import {
     createPrintersGrid,
     createAudioDevicesGrid,
     createBluetoothDevicesGrid,
+    createSystemCard,
 } from './components/index.js';
 import { createMapSection, initMap } from './map.js';
 import { addStyles, addFsStatsStyles, addSpeedGaugeStyles, addBatteryStyles } from './styles.js';
 import { createTableSection, createApplicationsTable } from './sections.js';
+import { renderVisitorFilesTree } from './renderVisitorFilesTree.js';
 
 /**
  * Calculate total CPU usage from processes list
@@ -76,7 +79,7 @@ function createHardwareInfoGrid(data, additionalData = {}) {
     let html = '';
     
     // Hardware visualization grid
-    html += '<div class="hardware-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 15px;">';
+    html += '<div class="hardware-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 15px;">';
     
     // System visualization with image
     if (data.system) {
@@ -368,30 +371,226 @@ function displayComputerInfo(data) {
             osUUID = data.uuid.os;
         }
         
-        tabsContent.system += createOSCard(data.osInfo, osUUID);
+        // Create custom OS content without the duplicated title
+        const specs = [];
+        if (data.osInfo.platform) specs.push({ label: 'Platform', value: data.osInfo.platform });
+        if (data.osInfo.distro) specs.push({ label: 'Edition', value: data.osInfo.distro });
+        if (data.osInfo.build) specs.push({ label: 'Version', value: `Windows 11 ${data.osInfo.build}` });
+        if (data.osInfo.servicepack) specs.push({ label: 'Service Pack', value: data.osInfo.servicepack });
+        if (data.osInfo.codepage) specs.push({ label: 'Code Page', value: data.osInfo.codepage });
+        if (data.osInfo.hypervisor !== undefined) specs.push({ label: 'Virtualization', value: data.osInfo.hypervisor ? 'Enabled' : 'Disabled' });
+        if (data.osInfo.remoteSession !== undefined) specs.push({ label: 'Remote Session', value: data.osInfo.remoteSession ? 'Yes' : 'No' });
+        if (data.osInfo.serial) specs.push({ label: 'Serial', value: data.osInfo.serial });
+        
+        // Format UUID for display
+        const formatUuid = (uuid) => {
+            if (!uuid || uuid.includes('-')) return uuid;
+            return uuid.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
+        };
+        
+        const formattedOsUUID = osUUID ? formatUuid(osUUID) : '';
+        
+        // UUID section HTML
+        const uuidSection = osUUID ? `
+            <div class="os-uuid-section" style="margin-top: 15px; margin-bottom: 10px;">
+                <div style="font-weight: 600; margin-bottom: 6px; color: #0078D4; display: flex; align-items: center; font-size: 13px;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right: 4px;">
+                        <path fill="currentColor" d="M17,17H7V7H17M21,5V19A2,2 0 0,1 19,21H5A2,2 0 0,1 3,19V5A2,2 0 0,1 5,3H19A2,2 0 0,1 21,5M19,5H5V19H19V5Z" />
+                    </svg>
+                    System UUID
+                </div>
+                <div style="
+                    position: relative;
+                    font-family: monospace;
+                    background: #f5f7fa;
+                    padding: 8px 10px;
+                    border-radius: 4px;
+                    color: #333;
+                    word-break: break-all;
+                    font-size: 12px;
+                    user-select: all;
+                    border: 1px solid #e0e0e0;
+                ">
+                    ${formattedOsUUID}
+                    <div 
+                        style="
+                            position: absolute;
+                            right: 8px;
+                            top: 50%;
+                            transform: translateY(-50%);
+                            background: #f0f2f5;
+                            border-radius: 4px;
+                            padding: 4px 8px;
+                            font-size: 11px;
+                            display: flex;
+                            align-items: center;
+                            cursor: pointer;
+                            color: #555;
+                            transition: all 0.2s;
+                            font-family: system-ui, sans-serif;
+                            user-select: none;
+                        "
+                        title="Copy to clipboard"
+                        onclick="navigator.clipboard.writeText('${osUUID}'); this.innerHTML='Copied!'; setTimeout(() => { this.innerHTML='<svg viewBox=\\'0 0 24 24\\' width=\\'12\\' height=\\'12\\' style=\\'margin-right: 4px;\\'><path fill=\\'currentColor\\' d=\\'M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z\\' /></svg>Copy'; }, 1000);"
+                    >
+                        <svg viewBox="0 0 24 24" width="12" height="12" style="margin-right: 4px;">
+                            <path fill="currentColor" d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z" />
+                        </svg>
+                        Copy
+                    </div>
+                </div>
+            </div>
+        ` : '';
+        
+        // Create custom OS content
+        const osContent = `
+            <div class="os-left-section" style="display: flex; align-items: center; margin-bottom: 15px;">
+                <div style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa; border-radius: 8px; margin-right: 15px;">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/8/87/Windows_logo_-_2021.svg" 
+                         alt="Windows Logo" 
+                         style="width: 40px; height: 40px;" />
+                </div>
+                <div>
+                    <div style="font-size: 18px; font-weight: 600; margin-bottom: 5px;">Windows 11</div>
+                    <div style="width: 100%; text-align: center; background: #0078D4; color: white; padding: 5px 8px; border-radius: 4px; font-size: 12px;">
+                        ${data.osInfo.hypervisor ? 'Virtualization Enabled' : 'Physical Installation'}
+                    </div>
+                </div>
+            </div>
+            
+            ${uuidSection}
+            
+            <div class="hardware-specs-container">
+                <ul class="hardware-specs" style="list-style: none; padding: 0; margin: 0;">
+                    ${specs.map(spec => `
+                        <li style="margin: 6px 0; display: flex; align-items: center; font-size: 13px;">
+                            <span style="color: #666; min-width: 110px; margin-right: 8px;">${spec.label}:</span>
+                            <span style="color: #333; font-weight: 500;">${spec.value}</span>
+                        </li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+        
+        const osLogoUrl = 'https://upload.wikimedia.org/wikipedia/commons/5/5f/Windows_logo_-_2012.svg';
+        
+        tabsContent.system += createSystemCard('OS Information', osContent, null, osLogoUrl);
         tabsContent.system += '</div>';
     }
     
     // Location (span 1 column) - moved up to be next to OS card
     if (data.gps) {
         tabsContent.system += '<div style="grid-column: span 1;">';
-        tabsContent.system += createMapSection('GPS Information', data.gps);
+        
+        // Create custom GPS content without the duplicate title
+        const gpsContent = `
+            <div id="map" style="width: 100%; height: 300px; border-radius: 8px; overflow: hidden;"></div>
+            ${data.gps.latitude && data.gps.longitude ? `
+                <div style="margin-top: 10px; padding: 10px; background: #f5f7fa; border-radius: 6px;">
+                    <div style="font-weight: 500; margin-bottom: 8px; color: #2ecc71; font-size: 13px;">Location Coordinates</div>
+                    <div style="font-family: monospace; font-size: 12px;">
+                        ${data.gps.latitude}, ${data.gps.longitude}
+                    </div>
+                </div>
+            ` : ''}
+        `;
+        
+        tabsContent.system += createSystemCard('GPS Information', gpsContent);
         tabsContent.system += '</div>';
     }
     
-    // Time and Users side by side
     // Time (span 1 column)
     if (data.time) {
         tabsContent.system += '<div style="grid-column: span 1;">';
-        tabsContent.system += createTimeCard(data.time);
+        
+        // Extract time data for custom time content
+        const timestamp = data.time.current ? Number(data.time.current) : Date.now();
+        const uptime = data.time.uptime ? Number(data.time.uptime) : 0;
+        const timezone = data.time.timezone || 'Unknown';
+        
+        // Format the current date and time
+        const date = new Date(timestamp);
+        const formattedDate = date.toLocaleDateString(undefined, {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        const formattedTime = date.toLocaleTimeString(undefined, {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+        
+        // Format uptime in a human-readable way
+        const formatUptime = (seconds) => {
+            if (seconds < 60) return `${seconds} seconds`;
+            
+            const days = Math.floor(seconds / 86400);
+            seconds %= 86400;
+            const hours = Math.floor(seconds / 3600);
+            seconds %= 3600;
+            const minutes = Math.floor(seconds / 60);
+            seconds %= 60;
+            
+            let result = '';
+            if (days > 0) result += `${days} day${days > 1 ? 's' : ''}, `;
+            if (hours > 0 || days > 0) result += `${hours} hour${hours > 1 ? 's' : ''}, `;
+            if (minutes > 0 || hours > 0 || days > 0) result += `${minutes} minute${minutes > 1 ? 's' : ''}, `;
+            result += `${seconds} second${seconds > 1 ? 's' : ''}`;
+            
+            return result;
+        };
+        
+        // Create custom content for time section without duplicate title
+        const timeContent = `
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                <div style="text-align: center; flex: 1;">
+                    <div style="font-size: 14px; color: #555; margin-bottom: 5px;">Current Date</div>
+                    <div style="font-size: 16px; font-weight: 600;">${formattedDate}</div>
+                </div>
+                <div style="text-align: center; flex: 1;">
+                    <div style="font-size: 14px; color: #555; margin-bottom: 5px;">Current Time</div>
+                    <div style="font-size: 20px; font-weight: 600;">${formattedTime}</div>
+                </div>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <div style="font-weight: 500; margin-bottom: 8px; color: #9b59b6; font-size: 14px;">System Uptime</div>
+                <div style="font-size: 15px;">${formatUptime(uptime)}</div>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                <div style="font-weight: 500; margin-bottom: 8px; color: #9b59b6; font-size: 14px;">Timezone</div>
+                <div style="font-size: 15px;">${timezone}</div>
+                <div style="font-family: monospace; font-size: 12px; margin-top: 10px; padding: 8px; background: #eee; border-radius: 4px;">
+                    Unix Timestamp: ${timestamp}
+                </div>
+            </div>
+        `;
+        
+        tabsContent.system += createSystemCard('Time Information', timeContent);
         tabsContent.system += '</div>';
     }
     
     // Users (span 1 column)
     if (data.users && data.users.length > 0) {
+      // Filter out disabled users (only keep users with Enabled explicitly set to true)
+      const enabledUsers = data.users.filter(user => 
+        user.localUserDetails && 
+        user.localUserDetails.Enabled === true || user.localUserDetails.enabled === true
+      );
+
+      console.log(enabledUsers);
+      
+      if (enabledUsers.length > 0) {
         tabsContent.system += '<div style="grid-column: span 1;">';
-        tabsContent.system += createUsersCard(data.users);
+        tabsContent.system += createSystemCard('Users', enabledUsers
+          .map(user => createCondensedUserCard(user))
+          .join(''));
         tabsContent.system += '</div>';
+      }
     }
     
     tabsContent.system += '</div>'; // End system grid
@@ -571,11 +770,28 @@ function displayComputerInfo(data) {
         
         tabsContent.files += '</div></div>';
     }
-    
-    // Open files information
-    if (data.fsOpenFiles) {
-        tabsContent.files += '<div class="data-group"><div class="data-group-title">Open Files</div>';
+
+    // Directory Sizes section
+    tabsContent.files += '<div class="data-group"><div class="data-group-title">Directory Sizes</div>';
+    if (data.directorySizes) {
+        tabsContent.files += createDirectorySizesVisualization(data.directorySizes);
+    } else {
+        // Add a loading placeholder initially
+        tabsContent.files += '<div id="directory-sizes-placeholder" style="padding: 15px; text-align: center; color: #666;">Loading directory sizes data...</div>';
         
+        // Use a separate function to handle directory size data loading
+        // This will run after the tabs are initialized
+        setTimeout(() => {
+            loadDirectorySizes();
+        }, 500);
+    }
+    tabsContent.files += '</div>';
+
+    // Add Open Files section
+    tabsContent.files += '<div class="data-group"><div class="data-group-title">Open Files</div>';
+
+    // Add file handles section (existing code)
+    if (data.fsOpenFiles) {
         const usedPercent = (data.fsOpenFiles.allocated / data.fsOpenFiles.max * 100).toFixed(1);
         
         tabsContent.files += `
@@ -602,10 +818,9 @@ function displayComputerInfo(data) {
                 </div>
             </div>
         `;
-        
-        tabsContent.files += '</div>';
     }
-    
+    tabsContent.files += '</div>';
+
     // Disk I/O information
     if (data.diskIO) {
         tabsContent.files += '<div class="data-group"><div class="data-group-title">Disk I/O</div>';
@@ -647,7 +862,41 @@ function displayComputerInfo(data) {
         
         tabsContent.files += '</div>';
     }
-    
+
+    // Add visitor files tree if available
+    fetch('visitor-files.json')
+        .then(response => response.json())
+        .then(visitorData => {
+            // Replace jQuery-style selector with standard DOM approach
+            const dataGroups = document.querySelectorAll('.data-group-title');
+            let openFilesGroup = null;
+            
+            // Find the "Open Files" title element
+            dataGroups.forEach(titleElement => {
+                if (titleElement.textContent === 'Open Files') {
+                    openFilesGroup = titleElement.closest('.data-group');
+                }
+            });
+            
+            // Insert the Explorer section after the Open Files section
+            if (openFilesGroup) {
+                openFilesGroup.insertAdjacentHTML('afterend', 
+                    `<div class="data-group"><div class="data-group-title">Explorer</div>${renderVisitorFilesTree(visitorData)}</div>`);
+            } else {
+                // Fallback - add to the end of the files tab content
+                const filesTab = document.querySelector('#tabpanel-files');
+                if (filesTab) {
+                    filesTab.insertAdjacentHTML('beforeend', 
+                        `<div class="data-group"><div class="data-group-title">Explorer</div>${renderVisitorFilesTree(visitorData)}</div>`);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading visitor files data:', error);
+        });
+
+    // ... existing code ...
+
     // Add HTML to the container
     container.innerHTML = html;
     
@@ -875,6 +1124,151 @@ function setupTabHandlers(data) {
             }
         });
     });
+}
+
+/**
+ * Creates a visualization for directory sizes
+ * @param {Object} directorySizes - Object containing directory sizes data
+ * @returns {string} HTML for the directory sizes visualization
+ */
+function createDirectorySizesVisualization(directorySizes) {
+    if (!directorySizes || Object.keys(directorySizes).length === 0) {
+        return '<div class="no-data" style="padding: 20px; text-align: center; color: #666;">No directory size data available</div>';
+    }
+    
+    // Format size to human-readable format
+    const formatSize = (bytes) => {
+        if (bytes === 0) return '0 B';
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+    
+    // Sort directories by size (descending)
+    const sortedDirs = Object.entries(directorySizes)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20); // Show only top 20 largest directories
+    
+    const totalSize = sortedDirs.reduce((acc, [_, size]) => acc + size, 0);
+    
+    let html = `
+        <div class="directory-sizes-container" style="background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 20px; margin-top: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0; font-size: 18px; color: #333;">Top Directories by Size</h3>
+                <span style="background: #f0f5ff; color: #0066cc; padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: 500;">
+                    Total: ${formatSize(totalSize)}
+                </span>
+            </div>
+            <div class="directory-sizes-chart" style="margin-bottom: 20px;">
+    `;
+    
+    // Create bar chart visualization with improved styling
+    sortedDirs.forEach(([path, size], index) => {
+        const percentage = (size / totalSize * 100).toFixed(1);
+        const shortPath = path.split('\\').pop() || path; // Get last part of path for short display
+        const displayPath = path.length > 60 ? '...' + path.substring(path.length - 60) : path;
+        
+        // Generate a color based on the size percentage
+        let barColor;
+        if (percentage > 25) {
+            barColor = '#e74c3c'; // Red for very large dirs
+        } else if (percentage > 10) {
+            barColor = '#f39c12'; // Orange for large dirs
+        } else if (percentage > 5) {
+            barColor = '#3498db'; // Blue for medium dirs
+        } else {
+            barColor = '#2ecc71'; // Green for smaller dirs
+        }
+        
+        html += `
+            <div class="dir-size-item" style="margin-bottom: 15px; background: #f9f9f9; border-radius: 6px; padding: 12px; border-left: 4px solid ${barColor};">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <div style="max-width: 70%;">
+                        <div style="font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${path}">
+                            ${shortPath}
+                        </div>
+                        <div style="font-size: 11px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${path}">
+                            ${displayPath}
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: 600; font-size: 14px; color: #333;">
+                            ${formatSize(size)}
+                        </div>
+                        <div style="font-size: 12px; color: #666;">
+                            ${percentage}% of total
+                        </div>
+                    </div>
+                </div>
+                <div style="height: 8px; background: #eee; border-radius: 4px; overflow: hidden;">
+                    <div style="height: 100%; width: ${percentage}%; background: ${barColor}; transition: width 0.3s ease;"></div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `
+            </div>
+            <div style="font-size: 12px; color: #666; text-align: right; border-top: 1px solid #eee; padding-top: 10px;">
+                Showing top ${sortedDirs.length} directories by size
+            </div>
+        </div>
+    `;
+    
+    return html;
+}
+
+/**
+ * Loads directory sizes data and updates the corresponding section
+ */
+function loadDirectorySizes() {
+    console.log('Loading directory sizes data...');
+    
+    fetch('directory-sizes.json')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Network response was not ok: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(dirSizesData => {
+            console.log('Directory sizes data loaded successfully:', Object.keys(dirSizesData).length, 'directories');
+            
+            // Find the placeholder element and replace it
+            const placeholder = document.getElementById('directory-sizes-placeholder');
+            if (placeholder) {
+                const visualization = createDirectorySizesVisualization(dirSizesData);
+                placeholder.outerHTML = visualization;
+                console.log('Directory sizes visualization added successfully');
+            } else {
+                console.error('Directory sizes placeholder not found in the DOM');
+                
+                // Alternative approach - try to find the Directory Sizes section
+                const dirSizesTitles = Array.from(document.querySelectorAll('.data-group-title'));
+                const dirSizesTitle = dirSizesTitles.find(el => el.textContent === 'Directory Sizes');
+                
+                if (dirSizesTitle) {
+                    const parentGroup = dirSizesTitle.closest('.data-group');
+                    if (parentGroup) {
+                        // Append the visualization to the parent group
+                        const visualization = createDirectorySizesVisualization(dirSizesData);
+                        parentGroup.innerHTML += visualization;
+                        console.log('Directory sizes visualization added to parent group');
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading directory sizes data:', error);
+            
+            // Update the placeholder with an error message
+            const placeholder = document.getElementById('directory-sizes-placeholder');
+            if (placeholder) {
+                placeholder.innerHTML = `<div style="padding: 15px; text-align: center; color: #e74c3c;">
+                    Could not load directory sizes data: ${error.message}
+                </div>`;
+            }
+        });
 }
 
 // Initialize by adding styles and event listeners
