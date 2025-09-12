@@ -5,7 +5,7 @@ import { getAllInfo } from '.';
   const info = await getAllInfo({
     host: '10.100.102.20',
     username: 'winrmuser',
-    password: 'guy132465',
+    password: 'newpassword',
     port: 5985,
   });
 
