@@ -8,13 +8,13 @@ import { getPlatformFlagsFromOptions } from '../util/platform';
  * GPS location data interface
  */
 export interface IGpsData {
-  latitude?: number;
-  longitude?: number;
+  latitude?: number | null;
+  longitude?: number | null;
   status?: string;
   accuracy?: number | null;
   altitude?: number | null;
   altitudeAccuracy?: number | null;
-  timestamp?: string;
+  timestamp?: string | null;
   error?: boolean;
   message?: string;
   [key: string]: any;
@@ -88,17 +88,77 @@ export function gps(options: IGpsOptions = {}, callback?: IGpsCallback): Promise
 
             if (output && output.trim()) {
               try {
-                // Use output (which is definitely a string) instead of stdout
-                const cleanedOutput = output.replaceAll(/:\s*NaN/g, ': null');
-                result = JSON.parse(cleanedOutput);
+                // Check for common timeout/error patterns before parsing JSON
+                if (
+                  output.includes('status: timeout') ||
+                  output.includes('Location services timed out')
+                ) {
+                  result = {
+                    latitude: null,
+                    longitude: null,
+                    status: 'timeout',
+                    accuracy: null,
+                    altitude: null,
+                    altitudeAccuracy: null,
+                    timestamp: null,
+                  };
+                } else if (
+                  output.includes('status: disabled') ||
+                  output.includes('Location services disabled')
+                ) {
+                  result = {
+                    latitude: null,
+                    longitude: null,
+                    status: 'disabled',
+                    accuracy: null,
+                    altitude: null,
+                    altitudeAccuracy: null,
+                    timestamp: null,
+                  };
+                } else if (
+                  output.includes('status: error') ||
+                  output.includes('Location services error')
+                ) {
+                  result = {
+                    latitude: null,
+                    longitude: null,
+                    status: 'error',
+                    accuracy: null,
+                    altitude: null,
+                    altitudeAccuracy: null,
+                    timestamp: null,
+                  };
+                } else {
+                  // Try to parse as JSON
+                  const cleanedOutput = output.replaceAll(/:\s*NaN/g, ': null');
+                  result = JSON.parse(cleanedOutput);
+                }
               } catch (error) {
                 console.error('Error parsing GPS data:', error);
                 console.error('Raw GPS data:', output);
-                // Try to clean the output in case there are NaN values
-                result = { error: true, message: 'Failed to parse GPS data', raw: output };
+                // Return a proper GPS object structure instead of generic error
+                result = {
+                  latitude: null,
+                  longitude: null,
+                  status: 'error',
+                  accuracy: null,
+                  altitude: null,
+                  altitudeAccuracy: null,
+                  timestamp: null,
+                  error: true,
+                  message: 'Failed to parse GPS data',
+                };
               }
             } else {
-              result = { error: true, message: 'No GPS data returned' };
+              result = {
+                latitude: null,
+                longitude: null,
+                status: 'no_data',
+                accuracy: null,
+                altitude: null,
+                altitudeAccuracy: null,
+                timestamp: null,
+              };
             }
 
             if (callback) {

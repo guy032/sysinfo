@@ -47,15 +47,16 @@ dotenv.config();
 // todo: add fullLoad missing
 
 // Type definitions
-interface WinRMOptions {
+interface IWinRMOptions {
   winrm: any;
   host: string;
   port: number;
   username: string;
   password: string;
+  skipSpeedMeasurement?: boolean;
 }
 
-interface TestConfig {
+interface ITestConfig {
   filesystem: boolean;
   osinfo: boolean;
   processes: boolean;
@@ -79,8 +80,8 @@ interface TestConfig {
 }
 
 type ResultsData = Record<string, any>;
-type TaskFunction = (options: WinRMOptions) => Promise<any>;
-interface TaskDefinition {
+type TaskFunction = (options: IWinRMOptions) => Promise<any>;
+interface ITaskDefinition {
   fn: TaskFunction;
   name: string;
   resultKey: string;
@@ -93,31 +94,31 @@ const username = process.env.WINRM_USERNAME || process.env.USERNAME || '';
 const password = process.env.WINRM_PASSWORD || process.env.PASSWORD || '';
 
 // Configure which tests to run
-const testsToRun: TestConfig = {
-  gps: false,
-  battery: false,
-  audio: false,
-  bluetooth: false,
-  usb: false,
-  internet: false,
-  printers: false,
-  osinfo: false,
-  processes: false,
-  services: false,
-  wifi: false,
-  graphics: false,
-  memory: false,
-  network: false,
-  system: false,
+const testsToRun: ITestConfig = {
+  gps: true,
+  battery: true,
+  audio: true,
+  bluetooth: true,
+  usb: true,
+  internet: true,
+  printers: true,
+  osinfo: true,
+  processes: true,
+  services: true,
+  wifi: true,
+  graphics: true,
+  memory: true,
+  network: true,
+  system: true,
   users: true,
-  cpu: false,
+  cpu: true,
   filesystem: false,
   files: false,
   // screenshot: false,
 };
 
-// Max number of concurrent tasks
-const MAX_CONCURRENT_TASKS = 5;
+// Max number of concurrent tasks - optimized for WinRM
+const MAX_CONCURRENT_TASKS = 10; // Slightly reduced to prevent overwhelming WinRM service
 
 // todo: add windows scheduled tasks
 // todo: add windows updates
@@ -131,7 +132,7 @@ const MAX_CONCURRENT_TASKS = 5;
 const withTimeout = <T>(
   promise: Promise<T>,
   name: string,
-  timeoutMs = 1_200_000,
+  timeoutMs = 300_000, // Reduced from 20 minutes to 5 minutes
 ): Promise<T | null> => {
   let timeoutId: NodeJS.Timeout;
 
@@ -173,15 +174,17 @@ const withTimeout = <T>(
   ]);
 };
 
-// Process tasks in batches with limited concurrency
-async function processBatches<T>(tasks: Array<Promise<T | null>>): Promise<Array<T | null>> {
-  const results: Array<T | null> = [];
-  const pendingTasks = [...tasks];
+// Process tasks with controlled concurrency using a semaphore-like approach
+async function processTasksWithConcurrency<T>(
+  tasks: Array<Promise<T | null>>,
+): Promise<Array<T | null>> {
+  const results: Array<T | null> = Array.from({ length: tasks.length });
   const failedTasks: string[] = [];
   const succeededTasks: string[] = [];
+  const taskTimings: Array<{ name: string; duration: number }> = [];
+  let completedCount = 0;
 
   const startTime = Date.now();
-  let batchNumber = 1;
 
   // Set a global timeout for the entire process
   const maxExecutionTime = 3_600_000; // 1 hour maximum execution time
@@ -204,22 +207,8 @@ async function processBatches<T>(tasks: Array<Promise<T | null>>): Promise<Array
       }
     }
 
-    if (pendingTasks.length > 0) {
-      console.log(`\n⏳ Pending tasks:`);
-
-      for (const task of pendingTasks) {
-        const taskName = (task as any).name || 'Unknown task';
-        console.log(`   - ${taskName}`);
-      }
-    }
-
     console.log(`==========================================`);
 
-    // Display results for completed tasks
-    console.log('Partial results:');
-    console.log(inspect(results, { depth: 5, colors: true }));
-
-    // Force exit the process
     process.exit(1);
   }, maxExecutionTime);
 
@@ -227,44 +216,76 @@ async function processBatches<T>(tasks: Array<Promise<T | null>>): Promise<Array
   const progressInterval = setInterval(() => {
     const elapsedTime = Date.now() - startTime;
     console.log(
-      `\n📊 Progress update: ${succeededTasks.length}/${tasks.length} tasks completed, ${pendingTasks.length} pending after ${(elapsedTime / 60_000).toFixed(1)} minutes`,
+      `\n📊 Progress update: ${completedCount}/${tasks.length} tasks completed after ${(elapsedTime / 1000).toFixed(1)}s`,
     );
-  }, 300_000); // Status update every 5 minutes
+  }, 10_000); // Status update every 10 seconds for faster feedback
+
+  console.log(
+    `\n🚀 Starting ${tasks.length} tasks with max ${MAX_CONCURRENT_TASKS} concurrent executions`,
+  );
+
+  // Create a semaphore to limit concurrency
+  let activeTasks = 0;
+  const taskQueue: Array<() => void> = [];
+
+  const executeTask = async (taskIndex: number) => {
+    const task = tasks[taskIndex];
+    const taskName = (task as any).name || `Task-${taskIndex + 1}`;
+    const taskStartTime = Date.now();
+
+    try {
+      const result = await task;
+      const taskDuration = Date.now() - taskStartTime;
+
+      results[taskIndex] = result;
+      taskTimings.push({ name: String(taskName), duration: taskDuration });
+
+      if (result === null) {
+        failedTasks.push(String(taskName));
+      } else {
+        succeededTasks.push(String(taskName));
+      }
+    } catch (error) {
+      const taskDuration = Date.now() - taskStartTime;
+      console.error(`❌ Unexpected error in ${String(taskName)}:`, error);
+      results[taskIndex] = null;
+      failedTasks.push(String(taskName));
+      taskTimings.push({ name: String(taskName), duration: taskDuration });
+    }
+
+    completedCount++;
+    activeTasks--;
+
+    // Start next queued task if any
+    if (taskQueue.length > 0) {
+      const nextTask = taskQueue.shift()!;
+      nextTask();
+    }
+  };
+
+  // Create promises for all tasks with concurrency control
+  const taskPromises: Array<Promise<void>> = [];
+
+  for (let i = 0; i < tasks.length; i++) {
+    const taskPromise = new Promise<void>((resolve) => {
+      const startTask = () => {
+        activeTasks++;
+        executeTask(i).finally(resolve);
+      };
+
+      if (activeTasks < MAX_CONCURRENT_TASKS) {
+        startTask();
+      } else {
+        taskQueue.push(startTask);
+      }
+    });
+
+    taskPromises.push(taskPromise);
+  }
 
   try {
-    while (pendingTasks.length > 0) {
-      const batch = pendingTasks.splice(0, MAX_CONCURRENT_TASKS);
-      console.log(
-        `\n🔄 Processing batch #${batchNumber} with ${batch.length} tasks (${pendingTasks.length} remaining)`,
-      );
-      const batchStartTime = Date.now();
-
-      // Add names to any unnamed tasks for better tracking
-      for (const [index, task] of batch.entries()) {
-        if (!(task as any).name) {
-          (task as any).name = `Task-${results.length + index + 1}`;
-        }
-      }
-
-      // Wait for current batch to complete before starting next batch
-      const batchResults = await Promise.all(batch);
-
-      // Track successes and failures
-      for (const [i, batchResult] of batchResults.entries()) {
-        if (batchResult === null) {
-          failedTasks.push((batch[i] as any).name || `Task #${results.length + i + 1}`);
-        } else {
-          succeededTasks.push((batch[i] as any).name || `Task #${results.length + i + 1}`);
-        }
-      }
-
-      results.push(...batchResults);
-
-      // Batch summary
-      const batchElapsed = Date.now() - batchStartTime;
-      console.log(`✅ Batch #${batchNumber} completed in ${(batchElapsed / 1000).toFixed(1)}s`);
-      batchNumber++;
-    }
+    // Wait for all tasks to complete
+    await Promise.all(taskPromises);
 
     // Final summary
     const totalElapsed = Date.now() - startTime;
@@ -272,6 +293,32 @@ async function processBatches<T>(tasks: Array<Promise<T | null>>): Promise<Array
     console.log(`🏁 All ${tasks.length} tasks completed in ${(totalElapsed / 1000).toFixed(1)}s`);
     console.log(`✅ Succeeded: ${succeededTasks.length} tasks`);
     console.log(`❌ Failed: ${failedTasks.length} tasks`);
+
+    // Sort tasks by duration (longest first) and display timing information
+    const sortedTimings = taskTimings.sort((a, b) => b.duration - a.duration);
+    console.log(`\n⏱️ Task execution times (sorted by duration):`);
+
+    for (const timing of sortedTimings) {
+      const status = failedTasks.includes(timing.name) ? '❌' : '✅';
+      const percentage = ((timing.duration / totalElapsed) * 100).toFixed(1);
+      console.log(
+        `   ${status} ${timing.name}: ${(timing.duration / 1000).toFixed(1)}s (${percentage}%)`,
+      );
+    }
+
+    // Additional timing statistics
+    if (taskTimings.length > 0) {
+      const durations = taskTimings.map((t) => t.duration);
+      const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length;
+      const maxDuration = Math.max(...durations);
+      const minDuration = Math.min(...durations);
+
+      console.log(`\n📊 Timing Statistics:`);
+      console.log(`   Average task time: ${(avgDuration / 1000).toFixed(1)}s`);
+      console.log(`   Slowest task: ${(maxDuration / 1000).toFixed(1)}s`);
+      console.log(`   Fastest task: ${(minDuration / 1000).toFixed(1)}s`);
+      console.log(`   Time range: ${((maxDuration - minDuration) / 1000).toFixed(1)}s spread`);
+    }
 
     if (failedTasks.length > 0) {
       console.log(`\n❌ Failed tasks:`);
@@ -297,9 +344,9 @@ function createTask(
   name: string,
   resultKey: string,
   results: ResultsData,
-  options: WinRMOptions,
+  options: IWinRMOptions,
 ): Promise<unknown> {
-  return withTimeout(
+  const promise = withTimeout(
     fn(options).then((data) => {
       results[resultKey] = data;
 
@@ -307,10 +354,15 @@ function createTask(
     }),
     name,
   );
+
+  // Ensure the name is accessible on the promise
+  (promise as any).name = name;
+
+  return promise;
 }
 
 // Task definitions grouped by category
-const taskDefinitions: Record<keyof TestConfig, TaskDefinition[]> = {
+const taskDefinitions: Record<keyof ITestConfig, ITaskDefinition[]> = {
   filesystem: [
     { fn: getDiskLayout, name: 'diskLayout', resultKey: 'diskLayout' },
     { fn: getBlockDevices, name: 'blockDevices', resultKey: 'blockDevices' },
@@ -372,12 +424,14 @@ const taskDefinitions: Record<keyof TestConfig, TaskDefinition[]> = {
 
 // Update the main function to include better error handling
 (async () => {
-  const options: WinRMOptions = {
+  const options: IWinRMOptions = {
     winrm,
     host,
     port,
     username,
     password,
+    // Enable fast mode for network stats (skips speed measurements)
+    skipSpeedMeasurement: true,
   };
 
   const results: ResultsData = {};
@@ -386,7 +440,7 @@ const taskDefinitions: Record<keyof TestConfig, TaskDefinition[]> = {
   // Generate tasks based on configuration
   for (const [category, enabled] of Object.entries(testsToRun)) {
     if (enabled) {
-      const categoryTasks = taskDefinitions[category as keyof TestConfig];
+      const categoryTasks = taskDefinitions[category as keyof ITestConfig];
 
       for (const task of categoryTasks) {
         tasks.push(createTask(task.fn, task.name, task.resultKey, results, options));
@@ -396,12 +450,12 @@ const taskDefinitions: Record<keyof TestConfig, TaskDefinition[]> = {
 
   try {
     // Run tasks with controlled concurrency
-    await processBatches(tasks);
+    await processTasksWithConcurrency(tasks);
 
     // Display results
-    console.log(inspect(results, { depth: 5, colors: true }));
-    console.log(JSON.stringify(results));
+    // console.log(inspect(results, { depth: 5, colors: true }));
+    // console.log(JSON.stringify(results));
   } catch (error) {
-    console.error('Error in batch processing:', error);
+    console.error('Error in task processing:', error);
   }
 })();

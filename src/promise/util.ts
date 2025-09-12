@@ -190,7 +190,7 @@ const retryFunction = async (
 
       return {}; // Return empty object on error
     }
-  } while (isEmptyResult(result) && retryCount <= maxRetries);
+  } while (isEmptyResult(result) && retryCount < maxRetries);
 
   // Log if all retries were exhausted
   if (isEmptyResult(result) && hadEmptyInitialResult && retryCount >= maxRetries) {

@@ -324,7 +324,7 @@ function networkStatsSingle(options, iface) {
             return parseLinesWindowsPerfData(psections);
           };
 
-          // Make two measurements 5 seconds apart
+          // Make two measurements 3 seconds apart
           const measureNetworkSpeed = async () => {
             const firstMeasurement = await getNetworkPerformanceData();
 
@@ -335,8 +335,8 @@ function networkStatsSingle(options, iface) {
             const first = firstMeasurement[0];
             const firstTimestamp = Date.now();
 
-            // Wait 5 seconds
-            await new Promise((resolve) => setTimeout(resolve, 5000));
+            // Wait 3 seconds
+            await new Promise((resolve) => setTimeout(resolve, 3000));
 
             const secondMeasurement = await getNetworkPerformanceData();
 
